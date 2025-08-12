@@ -1,0 +1,315 @@
+﻿@model ErrorViewModel
+
+@{
+    Layout = null; // Don't use the shared layout
+    ViewData["Title"] = "Error";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - Error</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    
+    <style>
+        /* Error Specific Styles */
+        .error-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .error-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .error-header {
+            margin-bottom: 30px;
+        }
+
+        .error-icon {
+            font-size: 4rem;
+            color: #E74C3C;
+            margin-bottom: 20px;
+        }
+
+        .error-title {
+            background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .error-subtitle {
+            color: #666;
+            font-size: 1.2rem;
+            line-height: 1.6;
+        }
+
+        .error-content {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .error-message {
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #333;
+        }
+
+        .error-details {
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #333;
+        }
+
+        .error-details h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+
+        .error-details p {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .error-details strong {
+            color: #2c3e50;
+        }
+
+        .error-details code {
+            background: rgba(52, 152, 219, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .back-link a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-link a:hover {
+            color: #2ecc71;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Floating elements for error page */
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .floating-item {
+            position: absolute;
+            opacity: 0;
+            animation: floatUp 15s infinite linear;
+        }
+
+        .floating-elements .error-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(231, 76, 60, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(231, 76, 60, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .floating-elements .warning-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(243, 156, 18, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(243, 156, 18, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        @@keyframes floatUp {
+            0% {
+                transform: translateY(100vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+                transform: translateY(90vh) rotate(20deg) scale(1);
+            }
+            90% {
+                opacity: 0.7;
+                transform: translateY(-10vh) rotate(340deg) scale(1);
+            }
+            100% {
+                transform: translateY(-20vh) rotate(360deg) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .floating-elements .floating-item:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .floating-elements .floating-item:nth-child(2) { left: 15%; animation-delay: 2s; }
+        .floating-elements .floating-item:nth-child(3) { left: 25%; animation-delay: 4s; }
+        .floating-elements .floating-item:nth-child(4) { left: 35%; animation-delay: 6s; }
+        .floating-elements .floating-item:nth-child(5) { left: 45%; animation-delay: 8s; }
+        .floating-elements .floating-item:nth-child(6) { left: 55%; animation-delay: 10s; }
+        .floating-elements .floating-item:nth-child(7) { left: 65%; animation-delay: 1s; }
+        .floating-elements .floating-item:nth-child(8) { left: 75%; animation-delay: 3s; }
+        .floating-elements .floating-item:nth-child(9) { left: 85%; animation-delay: 5s; }
+        .floating-elements .floating-item:nth-child(10) { left: 95%; animation-delay: 7s; }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .error-card {
+                padding: 30px 20px;
+            }
+
+            .error-title {
+                font-size: 2rem;
+            }
+
+            .error-icon {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Elements -->
+    <div class="floating-elements">
+        <div class="floating-item">
+            <div class="error-icon">⚠️</div>
+        </div>
+        <div class="floating-item">
+            <div class="warning-icon">🚨</div>
+        </div>
+        <div class="floating-item">
+            <div class="error-icon">❌</div>
+        </div>
+        <div class="floating-item">
+            <div class="warning-icon">🔴</div>
+        </div>
+        <div class="floating-item">
+            <div class="error-icon">💥</div>
+        </div>
+        <div class="floating-item">
+            <div class="warning-icon">⚡</div>
+        </div>
+        <div class="floating-item">
+            <div class="error-icon">🔥</div>
+        </div>
+        <div class="floating-item">
+            <div class="warning-icon">💢</div>
+        </div>
+        <div class="floating-item">
+            <div class="error-icon">🚫</div>
+        </div>
+        <div class="floating-item">
+            <div class="warning-icon">⛔</div>
+        </div>
+    </div>
+
+    <!-- Error Container -->
+    <div class="error-container">
+        <div class="error-card">
+            <div class="error-header">
+                <div class="error-icon">⚠️</div>
+                <h1 class="error-title">Oops! Something went wrong</h1>
+                <p class="error-subtitle">An error occurred while processing your request</p>
+            </div>
+
+            <div class="error-content">
+                @if (Model.ShowRequestId)
+                {
+                    <div class="error-message">
+                        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+                    </div>
+                }
+
+                <div class="error-details">
+                    <h3>Development Mode</h3>
+                    <p>
+                        Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
+                    </p>
+                    <p>
+                        <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
+                        It can result in displaying sensitive information from exceptions to end users.
+                    </p>
+                    <p>
+                        For local debugging, enable the <strong>Development</strong> environment by setting the 
+                        <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
+                        and restarting the app.
+                    </p>
+                </div>
+
+                <div class="back-link">
+                    <a href="/Home/Landing">
+                        <i class="fas fa-home"></i> Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="~/js/site.js"></script>
+</body>
+</html>

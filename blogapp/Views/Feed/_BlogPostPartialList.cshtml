@@ -1,0 +1,435 @@
+﻿@model List<blogapp.Models.BlogPost>
+
+@foreach (var post in Model)
+{
+    var userId = ViewBag.UserId as int?;
+    var isLiked = post.Likes?.Any(l => l.UserId == userId) ?? false;
+    var isBookmarked = ((List<int>)ViewBag.BookmarkedIds)?.Contains(post.Id) ?? false;
+    <article class="blog-post" data-post-id="@post.Id">
+        <div class="post-header">
+            @if (!string.IsNullOrEmpty(post.User?.ProfileImagePath))
+            {
+                <img src="@post.User.ProfileImagePath" alt="@(post.User?.Name ?? "Unknown")" class="author-avatar-img" />
+            }
+            else
+            {
+                <div class="author-avatar">@(post.User?.Name != null ? string.Join("", post.User.Name.Split(' ').Select(n => n[0])).ToUpper() : "U")</div>
+            }
+            <div class="author-info">
+                <h3>@(post.User?.Name ?? "Unknown")</h3>
+                <span class="post-time">@post.CreatedAt.ToString("MMM dd, yyyy")</span>
+            </div>
+        </div>
+        <div class="post-content">
+            <h2>@post.Title</h2>
+            <div class="post-description">
+                @{
+                    var content = post.Content ?? "";
+                                     // Strip HTML tags for clean preview
+                                     var plainText = System.Text.RegularExpressions.Regex.Replace(content, "<.*?>", "");
+                                     var preview = plainText.Length > 150 ? plainText.Substring(0, 150) + "..." : plainText;
+                }
+                                 @preview
+            </div>
+                                           @if (post.Id > 0)
+                               {
+                                   <a class="read-more-link" href="/BlogPost/FeedDetails/@post.Id" data-post-id="@post.Id">Read more</a>
+                               }
+            else
+            {
+                <span class="text-muted">Read more (unavailable)</span>
+            }
+            @if (!string.IsNullOrEmpty(post.ImagePath) || !string.IsNullOrEmpty(post.VideoPath))
+            {
+                <div class="post-image">
+                    @if (!string.IsNullOrEmpty(post.VideoPath))
+                    {
+                        <div class="video-container">
+                            <video controls class="post-video">
+                                <source src="@post.VideoPath" type="video/@post.VideoPath.Split('.').Last()">
+                                Your browser does not support the video tag.
+                            </video>
+                            <div class="video-badge">
+                                <i class="fas fa-play"></i> Video
+                            </div>
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(post.ImagePath))
+                    {
+                        <img src="@post.ImagePath" alt="@post.Title" />
+                    }
+                </div>
+            }
+            <div class="post-tags">
+                @foreach (var tag in (post.Tags ?? "").Split(','))
+                {
+                    if (!string.IsNullOrWhiteSpace(tag))
+                    {
+                        <span class="tag">@tag.Trim()</span>
+                    }
+                }
+            </div>
+        </div>
+        <div class="post-actions">
+            <div class="action-buttons">
+                @if (userId != null)
+                {
+                    <!-- Logged in user actions -->
+                <button type="button" class="action-btn like-btn" data-post-id="@post.Id" onclick="likePost(@post.Id, this)">
+                    @if (isLiked)
+                    {
+                        <span style="color: #e74c3c;">❤️</span>
+                    }
+                    else
+                    {
+                        <span>🤍</span>
+                    }
+                    <span class="like-count">@(post.Likes?.Count ?? 0)</span>
+                </button>
+                <button class="action-btn" onclick="window.location.href='/BlogPost/Details/@post.Id#comments'">
+                    <span>💬</span> @(post.Comments?.Count ?? 0)
+                </button>
+                <button class="action-btn bookmark-btn" 
+                        data-post-id="@post.Id" 
+                        onclick="toggleBookmark(@post.Id, this)" 
+                        title="@(isBookmarked ? "Remove bookmark" : "Bookmark this post")">
+                        @if (isBookmarked)
+                        {
+                            <span style="color: #f39c12;">🔖</span>
+                        }
+                        else
+                        {
+                            <span>🔖</span>
+                        }
+                    </button>
+                }
+                else
+                {
+                    <!-- Guest user actions -->
+                    <button type="button" class="action-btn like-btn" onclick="showLoginPrompt('like')" title="Login to like this post">
+                        <span>🤍</span>
+                        <span class="like-count">@(post.Likes?.Count ?? 0)</span>
+                    </button>
+                    <button class="action-btn" onclick="showLoginPrompt('comment')" title="Login to comment">
+                        <span>💬</span> @(post.Comments?.Count ?? 0)
+                    </button>
+                    <button class="action-btn bookmark-btn" onclick="showLoginPrompt('bookmark')" title="Login to bookmark this post">
+                        <span>🔖</span>
+                    </button>
+                }
+                <!-- Share button is available for everyone -->
+                <button class="action-btn" onclick="sharePost(@post.Id, '@post.Title')" title="Share this post">
+                    <span>📤</span> Share
+                </button>
+            </div>
+        </div>
+    </article>
+}
+
+<script>
+    // Share post functionality
+    function sharePost(postId, postTitle) {
+        const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+        const text = `Check out this blog post: ${postTitle}`;
+        
+        // Check if Web Share API is available and we're in a secure context
+        if (navigator.share && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+            // Use native sharing if available
+            navigator.share({
+                title: postTitle,
+                text: text,
+                url: url
+            }).then(() => {
+                showNotification('Shared successfully!', 'success');
+            }).catch((error) => {
+                console.log('Share cancelled or failed:', error);
+                // Fallback to copying if share was cancelled
+                copyToClipboard(text, url);
+            });
+        } else {
+            // Fallback to copying to clipboard
+            copyToClipboard(text, url);
+        }
+    }
+
+    // Helper function to copy to clipboard
+    function copyToClipboard(text, url) {
+            const shareText = `${text}\n\n${url}`;
+        
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(shareText).then(() => {
+                showNotification('Post link copied to clipboard!', 'success');
+            }).catch(() => {
+                fallbackCopyToClipboard(shareText);
+            });
+        } else {
+            fallbackCopyToClipboard(shareText);
+        }
+    }
+
+                // Fallback for older browsers
+    function fallbackCopyToClipboard(text) {
+                const textArea = document.createElement('textarea');
+        textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+        textArea.focus();
+                textArea.select();
+        
+                try {
+                    document.execCommand('copy');
+                    showNotification('Post link copied to clipboard!', 'success');
+                } catch (err) {
+                    showNotification('Failed to copy link. Please copy manually.', 'error');
+                }
+        
+                document.body.removeChild(textArea);
+    }
+
+    // Show notification function (if not already defined)
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        // Add styles
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.color = 'white';
+        notification.style.zIndex = '10000';
+        notification.style.transition = 'all 0.3s ease';
+        notification.style.maxWidth = '300px';
+        notification.style.wordWrap = 'break-word';
+        
+        // Set background color based on type
+        switch(type) {
+            case 'success':
+                notification.style.backgroundColor = '#4caf50';
+                break;
+            case 'error':
+                notification.style.backgroundColor = '#f44336';
+                break;
+            case 'warning':
+                notification.style.backgroundColor = '#ff9800';
+                break;
+            default:
+                notification.style.backgroundColor = '#2196f3';
+        }
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+            }
+            }, 300);
+        }, 3000);
+    }
+
+    // AJAX Bookmark functionality
+    function toggleBookmark(postId, button) {
+        // Add loading state
+        button.disabled = true;
+        const originalContent = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        fetch(`/User/ToggleBookmarkAjax/${postId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the bookmark icon
+                const bookmarkIcon = button.querySelector('i');
+                if (data.isBookmarked) {
+                    bookmarkIcon.className = 'fas fa-bookmark text-warning';
+                    button.textContent = 'Saved';
+                } else {
+                    bookmarkIcon.className = 'fas fa-bookmark';
+                    button.textContent = 'Save';
+                }
+
+                // Only show notification if there's a message
+                if (data.message && data.message.trim() !== '') {
+                    showNotification(data.message, 'success');
+                }
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error toggling bookmark. Please try again.', 'error');
+        })
+        .finally(() => {
+            // Re-enable button
+            button.disabled = false;
+        });
+    }
+
+    // Login prompt function for guest users
+    function showLoginPrompt(action) {
+        const actionText = {
+            'like': 'like posts',
+            'comment': 'comment on posts',
+            'bookmark': 'bookmark posts'
+        }[action] || 'interact with posts';
+
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        `;
+
+        modalContent.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <i class="fas fa-user-lock" style="font-size: 3rem; color: #667eea; margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 10px; color: #333;">Login Required</h3>
+                <p style="color: #666; margin-bottom: 20px;">Please login or register to ${actionText}.</p>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="window.location.href='/Auth/Login'" style="
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                ">Login</button>
+                <button onclick="window.location.href='/Auth/Register'" style="
+                    background: #43e97b;
+                    color: white;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                ">Register</button>
+                <button onclick="closeLoginModal()" style="
+                    background: #f8f9fa;
+                    color: #666;
+                    border: 1px solid #ddd;
+                    padding: 12px 25px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                ">Cancel</button>
+            </div>
+        `;
+
+        // Add hover effects
+        const buttons = modalContent.querySelectorAll('button');
+        buttons.forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'translateY(-2px)';
+                button.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)';
+            });
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translateY(0)';
+                button.style.boxShadow = 'none';
+            });
+        });
+
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeLoginModal();
+            }
+        });
+    }
+
+    function closeLoginModal() {
+        const modal = document.querySelector('div[style*="position: fixed"][style*="z-index: 10000"]');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    // Like post functionality (for logged in users)
+    function likePost(postId, button) {
+        // Add loading state
+        button.disabled = true;
+        const originalContent = button.innerHTML;
+
+        fetch(`/BlogPost/LikeAjax/${postId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the like icon and count
+                const likeIcon = button.querySelector('span:first-child');
+                const likeCount = button.querySelector('.like-count');
+                
+                if (data.isLiked) {
+                    likeIcon.innerHTML = '❤️';
+                    likeIcon.style.color = '#e74c3c';
+                } else {
+                    likeIcon.innerHTML = '🤍';
+                    likeIcon.style.color = '';
+                }
+                
+                if (likeCount) {
+                    likeCount.textContent = data.likeCount || 0;
+                }
+
+                if (data.message) {
+                    showNotification(data.message, 'success');
+                }
+            } else {
+                showNotification(data.message || 'Error liking post', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error liking post. Please try again.', 'error');
+        })
+        .finally(() => {
+            // Re-enable button
+            button.disabled = false;
+        });
+    }
+</script>

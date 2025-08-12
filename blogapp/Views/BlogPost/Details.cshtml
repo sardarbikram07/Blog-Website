@@ -1,0 +1,376 @@
+﻿@model blogapp.Models.BlogPost
+@using System.Text.RegularExpressions
+@using Microsoft.EntityFrameworkCore
+@inject blogapp.Data.BlogDBContext db
+
+@{
+    Layout = null; 
+    ViewData["Title"] = Model.Title;
+    string cleanedContent = Regex.Replace(Model.Content ?? "", @"\s*data-(start|end)=""[^""]*""", "", RegexOptions.IgnoreCase);
+    var profileImage = Context.Session.GetString("ProfileImagePath") ?? "/images/profiles/user-icon.png";
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var userInitials = userName.Length > 1 ? string.Join("", userName.Split(' ').Select(n => n[0])).ToUpper() : userName.ToUpper();
+    var hasProfileImage = !string.IsNullOrEmpty(profileImage) && profileImage != "/images/profiles/user-icon.png";
+    var userId = Context.Session.GetInt32("UserId");
+    var isCreator = db.BlogPosts.Any(p => p.UserId == userId);
+    var notifications = db.UserNotifications
+        .Where(un => un.UserId == userId)
+        .Include(un => un.Notification)
+        .Where(un => un.Notification != null)
+        .OrderByDescending(un => un.Notification.CreatedAt)
+        .Take(10)
+        .Select(un => un.Notification)
+        .ToList();
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - @Model.Title</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    <link href="~/css/blog-details.css" rel="stylesheet" />
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <nav>
+            <button class="close-sidebar-button" id="closeSidebarButton">☰</button>
+            <ul class="nav-menu">
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Feed/Index'">
+                    <span>⌂</span> Home Feed
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/EditProfile'">
+                    <span>👤</span> Edit Profile
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/Bookmarks'">
+                    <span>🔖</span> Bookmarks
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/MyPosts'">
+                    <span>📝</span> My Posts
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Category'">
+                    <span>🏷️</span> Categories
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); logout()">
+                    <span>⏏️</span> Logout
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="logo">
+                <h1>BlogHub</h1>
+            </div>
+            <div class="search-container">
+                <form method="get" action="/Feed/Index">
+                    <input type="text" name="search" class="search-bar" placeholder="Search blogs, topics, authors..." value="@Context.Request.Query["search"]">
+                    <button class="search-btn" type="submit">🔍</button>
+                </form>
+            </div>
+            <div class="header-actions">
+                <button class="create-post-btn" onclick="window.location.href='/BlogPost/Create'">
+                    ✨ Create New Post
+                </button>
+                <div class="user-menu">
+                    <button class="notification-btn" onclick="toggleNotifications()">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <div class="user-profile" onclick="window.location.href='/User/Dashboard'">
+                        @if (hasProfileImage)
+                        {
+                            <img src="@profileImage" alt="@userName" class="user-avatar-img" />
+                        }
+                        else
+                        {
+                            <div class="user-avatar">@userInitials</div>
+                        }
+                        <span>@userName</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- ✅ Blog Details View -->
+        <div class="container">
+            <div class="blog-details-card">
+                @if (TempData["LikeMessage"] != null)
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        @TempData["LikeMessage"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                
+                @if (TempData["CommentMessage"] != null)
+                {
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        @TempData["CommentMessage"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                
+                @Html.AntiForgeryToken()
+                
+                <h1 class="blog-title">@Model.Title</h1>
+
+                <div class="blog-meta">
+                    <div class="author-info">
+                        @if (!string.IsNullOrEmpty(Model.User?.ProfileImagePath))
+                        {
+                            <img src="@Model.User.ProfileImagePath" alt="@(Model.User?.Name ?? "Unknown")" class="author-avatar-img" />
+                        }
+                        else
+                        {
+                            <div class="author-avatar">@(Model.User?.Name != null ? string.Join("", Model.User.Name.Split(' ').Select(n => n[0])).ToUpper() : "U")</div>
+                        }
+                        <div class="author-details">
+                            <strong>@Model.User?.Name</strong>
+                            <span class="post-date">@Model.CreatedAt.ToString("dd MMM yyyy")</span>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(Model.ImagePath))
+                {
+                    <img src="@Model.ImagePath" alt="@Model.Title" class="blog-image" />
+                }
+
+                <div class="blog-content">
+                    @Html.Raw(cleanedContent)
+                </div>
+
+                <div class="blog-tags">
+                    <strong>Tags:</strong> @Model.Tags
+                </div>
+
+                <!-- ✅ Like Section (AJAX version) -->
+                @{
+                    var userId = Context.Session.GetInt32("UserId");
+                    var isLiked = Model.Likes?.Any(l => l.UserId == userId) ?? false;
+                }
+                <button type="button" class="like-btn" onclick="likePost(@Model.Id, this)" title="@(isLiked ? "Unlike this post" : "Like this post")">
+                    @if (isLiked)
+                    {
+                        <span style="color: #e74c3c;">❤️</span>
+                    }
+                    else
+                    {
+                        <span>🤍</span>
+                    }
+                    <strong class="like-count">@(Model.Likes?.Count ?? 0) Likes</strong>
+                </button>
+
+                <!-- ✅ Video Player -->
+                @if (!string.IsNullOrEmpty(Model.VideoPath))
+                {
+                    <div class="video-section">
+                        <h4>🎥 Video</h4>
+                        <div class="video-container">
+                            <video controls class="blog-video">
+                                <source src="@Model.VideoPath" type="video/@Model.VideoPath.Split('.').Last()">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                }
+
+                <!-- ✅ Comments Section -->
+                <div class="comments-section">
+                    <h4>💬 Comments</h4>
+
+                    @if (Model.Comments?.Count > 0)
+                    {
+                        <ul class="comment-list">
+                            @foreach (var comment in Model.Comments)
+                            {
+                                <li>
+                                    <strong>@comment.Author:</strong> @comment.Content <br />
+                                    <small class="text-muted">@comment.CreatedAt.ToString("g")</small>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No comments yet.</p>
+                    }
+
+                    <!-- Add Comment Form -->
+                    <div class="comment-box">
+                        <form asp-action="AddComment" method="post" class="comment-form">
+                            <input type="hidden" name="postId" value="@Model.Id" />
+                            <div class="mb-2">
+                                <textarea name="content" class="form-control" rows="3" placeholder="Add a comment..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">💬 Post Comment</button>
+                        </form>
+                    </div>
+                </div>
+
+                <a href="/Feed/Index" class="back-link">← Back to Blog Feed</a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="~/js/site.js"></script>
+    <script>
+        // Override showNotification to prevent any notifications
+        function showNotification(message, type = 'info') {
+            // Do nothing - suppress all notifications
+            console.log('Notification suppressed:', message);
+        }
+
+        // Sidebar functionality
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+        }
+
+        // Close sidebar when clicking outside
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            const menuToggle = document.getElementById('menuToggle');
+            
+            if (!sidebar.contains(event.target) && !menuToggle.contains(event.target) && sidebar.classList.contains('active')) {
+                closeSidebar();
+            }
+        });
+
+        // Menu toggle functionality
+        document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+        document.getElementById('closeSidebarButton').addEventListener('click', closeSidebar);
+        document.getElementById('overlay').addEventListener('click', closeSidebar);
+
+        // Logout function
+        function logout() {
+            window.location.href = '/Auth/Logout';
+        }
+
+        // Notification toggle function
+        function toggleNotifications() {
+            // Add notification functionality here
+            console.log('Toggle notifications');
+        }
+    </script>
+
+    <!-- TinyMCE CDN (Rich Text Editor) -->
+    <script src="https://cdn.tiny.cloud/1/6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+        tinymce.init({
+            selector: 'textarea#contentEditor',
+            menubar: false,
+            plugins: 'link image lists code preview',
+            toolbar: 'undo redo | bold italic underline | bullist numlist | link image | code preview',
+            height: 300,
+            apiKey: '6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9'
+        });
+    </script>
+    <script>
+        // AJAX Like functionality
+        function likePost(postId, button) {
+            // Add loading state
+            button.disabled = true;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<span>⏳</span>';
+
+            fetch(`/BlogPost/LikeAjax/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    '__RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the heart icon
+                    const heartSpan = button.querySelector('span:first-child');
+                    if (data.isLiked) {
+                        heartSpan.innerHTML = '❤️';
+                        heartSpan.style.color = '#e74c3c';
+                    } else {
+                        heartSpan.innerHTML = '🤍';
+                        heartSpan.style.color = '';
+                    }
+
+                    // Update the like count
+                    const countSpan = button.querySelector('.like-count');
+                    countSpan.textContent = data.likeCount + ' Likes';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Just log the error, don't show user message
+            })
+            .finally(() => {
+                // Re-enable button
+                button.disabled = false;
+            });
+        }
+
+        // Remove the notification function since we don't want error messages
+    </script>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="close-notifications" onclick="toggleNotifications()">×</button>
+        </div>
+        <div class="notification-list">
+            @if (notifications.Any())
+            {
+                @foreach (var notification in notifications)
+                {
+                    <div class="notification-item">
+                        <div class="notification-icon">🔔</div>
+                        <div class="notification-content">
+                            <strong>@notification.Title</strong>
+                            <p>@Html.Raw(notification.Message)</p>
+                            <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="notification-item">
+                    <div class="notification-icon">🔔</div>
+                    <div class="notification-content">
+                        <p>No notifications yet</p>
+                        <span class="notification-time">Check back later</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</body>
+</html>

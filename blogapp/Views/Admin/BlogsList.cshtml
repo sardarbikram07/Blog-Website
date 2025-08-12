@@ -1,0 +1,48 @@
+﻿
+
+
+
+
+
+@model List<blogapp.Models.BlogPost>
+@{
+    ViewData["Title"] = "All Blog Posts";
+}
+
+<div class="container mt-4">
+    <h2>📝 All Blog Posts</h2>
+    <a href="/Admin/Dashboard" class="btn btn-primary">← Back to Dashboard</a>
+    <form class="mb-3" method="get">
+        <input type="text" name="search" class="form-control" placeholder="Search by title, author, or tags..." value="@Context.Request.Query["search"]" />
+    </form>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-warning">No blog posts found.</div>
+    }
+
+    @foreach (var post in Model)
+    {
+        <div class="card mb-3 shadow">
+            <div class="card-body">
+                <h5>@post.Title</h5>
+                <p>@Html.Raw(post.Content.Length > 200 ? post.Content.Substring(0, 200) + "..." : post.Content)</p>
+                <p><strong>Author:</strong> @(post.User?.Name ?? "Unknown")</p>
+                <p><strong>Tags:</strong> @post.Tags</p>
+                <p><strong>Posted On:</strong> @post.CreatedAt.ToString("dd MMM yyyy")</p>
+
+                <div class="d-flex gap-2">
+                    <form method="post" asp-action="DeleteBlog" asp-route-id="@post.Id" onsubmit="return confirm('Are you sure you want to delete this blog?')">
+                        <button type="submit" class="btn btn-sm btn-danger">🗑 Delete</button>
+                    </form>
+
+                    <form method="post" asp-action="ToggleAdminChoice" asp-route-id="@post.Id">
+                        <button type="submit" class="btn btn-sm @(post.IsAdminChoice ? "btn-outline-warning" : "btn-warning")">
+                            @(post.IsAdminChoice ? "Unmark ⭐" : "Mark as Admin's Choice")
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>

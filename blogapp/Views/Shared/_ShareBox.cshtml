@@ -1,0 +1,341 @@
+﻿
+
+
+@model int
+
+
+@{
+    var postId = Model;
+    var shareUrl = Url.Action("SharedView", "BlogPost", new { id = postId }, Context.Request.Scheme);
+}
+
+<div class="share-container position-relative">
+    <!-- Share Button -->
+    <button class="btn btn-sm btn-outline-primary share-toggle"
+            data-post-id="@postId"
+            type="button"
+            aria-label="Share options"
+            title="Share">
+        <i class="fas fa-share-alt"></i>
+    </button>
+
+    <!-- Modern Share Popup -->
+    <div class="share-popup shadow-lg" id="share-popup-@postId" style="display: none;">
+        <div class="share-header d-flex justify-content-between align-items-center p-2">
+            <h6 class="mb-0">Share this post</h6>
+            <button type="button" class="btn-close share-close" aria-label="Close"></button>
+        </div>
+
+        <div class="share-platforms p-3">
+            <a href="https://www.facebook.com/sharer/sharer.php?u=@shareUrl"
+               target="_blank"
+               class="share-platform"
+               title="Share on Facebook">
+                <div class="platform-icon facebook">
+                    <i class="fab fa-facebook-f"></i>
+                </div>
+                <span>Facebook</span>
+            </a>
+
+            <a href="https://twitter.com/intent/tweet?url=@shareUrl"
+               target="_blank"
+               class="share-platform"
+               title="Share on Twitter">
+                <div class="platform-icon twitter">
+                    <i class="fab fa-twitter"></i>
+                </div>
+                <span>Twitter</span>
+            </a>
+
+            <a href="https://www.linkedin.com/sharing/share-offsite/?url=@shareUrl"
+               target="_blank"
+               class="share-platform"
+               title="Share on LinkedIn">
+                <div class="platform-icon linkedin">
+                    <i class="fab fa-linkedin-in"></i>
+                </div>
+                <span>LinkedIn</span>
+            </a>
+
+            <a href="https://wa.me/?text=@shareUrl"
+               target="_blank"
+               class="share-platform"
+               title="Share on WhatsApp">
+                <div class="platform-icon whatsapp">
+                    <i class="fab fa-whatsapp"></i>
+                </div>
+                <span>WhatsApp</span>
+            </a>
+
+            <button class="share-platform copy-link"
+                    data-url="@shareUrl"
+                    data-title="@ViewBag.PostTitle"
+                    title="Copy link">
+                <div class="platform-icon link">
+                    <i class="fas fa-link"></i>
+                </div>
+                <span>Copy Link</span>
+            </button>
+
+            <!-- Native Share Button (if Web Share API is available) -->
+            <button class="share-platform native-share"
+                    data-url="@shareUrl"
+                    data-title="@ViewBag.PostTitle"
+                    title="Share natively"
+                    style="display: none;">
+                <div class="platform-icon native">
+                    <i class="fas fa-share-alt"></i>
+                </div>
+                <span>Share</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .share-popup {
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        width: 220px;
+        background: white;
+        border-radius: 8px;
+        z-index: 1000;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    .share-header {
+        border-bottom: 1px solid #eee;
+    }
+
+    .share-platforms {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .share-platform {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-decoration: none;
+        color: #333;
+        font-size: 12px;
+        transition: transform 0.2s;
+    }
+
+        .share-platform:hover {
+            transform: translateY(-2px);
+            color: #333;
+        }
+
+    .platform-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 4px;
+    }
+
+    .facebook {
+        background: #1877f2;
+        color: white;
+    }
+
+    .twitter {
+        background: #1da1f2;
+        color: white;
+    }
+
+    .linkedin {
+        background: #0a66c2;
+        color: white;
+    }
+
+    .whatsapp {
+        background: #25d366;
+        color: white;
+    }
+
+    .link {
+        background: #f0f0f0;
+        color: #555;
+    }
+
+    .native {
+        background: #007bff;
+        color: white;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if Web Share API is available
+        const isWebShareSupported = navigator.share && (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
+        
+        // Show/hide native share button based on support
+        document.querySelectorAll('.native-share').forEach(button => {
+            if (isWebShareSupported) {
+                button.style.display = 'flex';
+            }
+        });
+
+        // Toggle share popup
+        document.querySelectorAll('.share-toggle').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const postId = this.getAttribute('data-post-id');
+                const popup = document.getElementById(`share-popup-${postId}`);
+
+                // Close all other popups
+                document.querySelectorAll('.share-popup').forEach(p => {
+                    if (p !== popup) p.style.display = 'none';
+                });
+
+                // Toggle current popup
+                popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+            });
+        });
+
+        // Close button
+        document.querySelectorAll('.share-close').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                this.closest('.share-popup').style.display = 'none';
+            });
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', function() {
+            document.querySelectorAll('.share-popup').forEach(popup => {
+                popup.style.display = 'none';
+            });
+        });
+
+        // Native share functionality
+        document.querySelectorAll('.native-share').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const url = this.getAttribute('data-url');
+                const title = this.getAttribute('data-title') || 'Check out this blog post';
+                const text = `Check out this blog post: ${title}`;
+                
+                navigator.share({
+                    title: title,
+                    text: text,
+                    url: url
+                }).then(() => {
+                    showShareNotification('Shared successfully!', 'success');
+                }).catch((error) => {
+                    console.log('Share cancelled or failed:', error);
+                    // Fallback to copying if share was cancelled
+                    copyToClipboard(url);
+                });
+            });
+        });
+
+        // Copy link functionality
+        document.querySelectorAll('.copy-link').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const url = this.getAttribute('data-url');
+                copyToClipboard(url);
+            });
+        });
+    });
+
+    // Helper function to copy to clipboard
+    function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                showShareNotification('Link copied to clipboard!', 'success');
+            }).catch(() => {
+                fallbackCopyToClipboard(text);
+            });
+        } else {
+            fallbackCopyToClipboard(text);
+        }
+    }
+
+    // Fallback for older browsers
+    function fallbackCopyToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showShareNotification('Link copied to clipboard!', 'success');
+        } catch (err) {
+            showShareNotification('Failed to copy link. Please copy manually.', 'error');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+
+    // Show notification function
+    function showShareNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        // Add styles
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.color = 'white';
+        notification.style.zIndex = '10000';
+        notification.style.transition = 'all 0.3s ease';
+        notification.style.maxWidth = '300px';
+        notification.style.wordWrap = 'break-word';
+        
+        // Set background color based on type
+        switch(type) {
+            case 'success':
+                notification.style.backgroundColor = '#4caf50';
+                break;
+            case 'error':
+                notification.style.backgroundColor = '#f44336';
+                break;
+            case 'warning':
+                notification.style.backgroundColor = '#ff9800';
+                break;
+            default:
+                notification.style.backgroundColor = '#2196f3';
+        }
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+</script>

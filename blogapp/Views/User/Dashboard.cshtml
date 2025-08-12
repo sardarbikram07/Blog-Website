@@ -1,0 +1,1024 @@
+﻿
+
+@model DashboardViewModel
+@using Microsoft.EntityFrameworkCore
+@inject blogapp.Data.BlogDBContext db
+
+@{
+    Layout = null; // Don't use the shared layout
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var userInitials = userName.Length > 1 ? string.Join("", userName.Split(' ').Select(n => n[0])).ToUpper() : userName.ToUpper();
+    var userId = Context.Session.GetInt32("UserId");
+    var isCreator = db.BlogPosts.Any(p => p.UserId == userId);
+    var notifications = db.UserNotifications
+        .Where(un => un.UserId == userId)
+        .Include(un => un.Notification)
+        .Where(un => un.Notification != null)
+        .OrderByDescending(un => un.Notification.CreatedAt)
+        .Take(10)
+        .Select(un => un.Notification)
+        .ToList();
+    
+    // Get profile image from session first, then from database as fallback
+    var profileImage = Context.Session.GetString("ProfileImagePath");
+    if (string.IsNullOrEmpty(profileImage))
+    {
+        if (userId.HasValue)
+        {
+            var user = db?.Users.FirstOrDefault(u => u.Id == userId.Value);
+            profileImage = user?.ProfileImagePath;
+        }
+    }
+    
+    var hasCustomImage = !string.IsNullOrEmpty(profileImage);
+    var defaultIconPath = "/images/profiles/user-icon.png";
+    var imageSrc = hasCustomImage ? profileImage : defaultIconPath;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - User Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    
+    <style>
+        /* Dashboard Specific Styles */
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .welcome-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .profile-image {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid rgba(52, 152, 219, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .profile-image:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .welcome-title {
+            background: linear-gradient(135deg,rgb(22, 20, 126) 0%,rgb(9, 5, 59) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .welcome-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+        }
+
+        .profile-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .profile-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .profile-btn.primary {
+            background: linear-gradient(135deg, #3498db 0%, #2e2ecc 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .profile-btn.secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
+        }
+
+        .profile-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            text-decoration: none;
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-card.posts {
+            border-left: 4px solidrgb(16, 63, 95);
+        }
+
+        .stat-card.comments {
+            border-left: 4px solidrgb(30, 126, 70);
+        }
+
+        .stat-card.likes {
+            border-left: 4px solidrgb(20, 165, 122);
+        }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .stat-card.posts .stat-icon {
+            color:rgb(5, 48, 77);
+        }
+
+        .stat-card.comments .stat-icon {
+            color:rgb(46, 204, 183);
+        }
+
+        .stat-card.likes .stat-icon {
+            color:rgb(161, 16, 16);
+        }
+
+        .stat-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .recent-posts-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+        }
+
+        .section-title {
+            background: linear-gradient(135deg, #2e65cc 0%, #2f1f97 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .post-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            background: rgba(52, 152, 219, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .post-item:hover {
+            background: rgba(52, 152, 219, 0.1);
+            transform: translateX(5px);
+        }
+
+        .post-title {
+            color: #2c3e50;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .post-title:hover {
+            color: #3498db;
+        }
+
+        .post-date {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #7f8c8d;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #bdc3c7;
+        }
+
+        .create-first-post {
+            background: linear-gradient(135deg, #3498db 0%, #2e2ecc 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin-top: 15px;
+        }
+
+        .create-first-post:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        /* Floating elements for dashboard */
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .floating-item {
+            position: absolute;
+            opacity: 0;
+            animation: floatUp 15s infinite linear;
+        }
+
+        .floating-elements .stat-bubble {
+            width: 80px;
+            height: 80px;
+            background: rgba(52, 152, 219, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .floating-elements .post-card {
+            width: 200px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .floating-elements .achievement-badge {
+            background: rgba(46, 204, 113, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            border-radius: 20px;
+            padding: 10px 16px;
+            font-size: 14px;
+            color: #2ECC71;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        @@keyframes floatUp {
+            0% {
+                transform: translateY(100vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+                transform: translateY(90vh) rotate(20deg) scale(1);
+            }
+            90% {
+                opacity: 0.7;
+                transform: translateY(-10vh) rotate(340deg) scale(1);
+            }
+            100% {
+                transform: translateY(-20vh) rotate(360deg) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .floating-elements .floating-item:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .floating-elements .floating-item:nth-child(2) { left: 15%; animation-delay: 2s; }
+        .floating-elements .floating-item:nth-child(3) { left: 25%; animation-delay: 4s; }
+        .floating-elements .floating-item:nth-child(4) { left: 35%; animation-delay: 6s; }
+        .floating-elements .floating-item:nth-child(5) { left: 45%; animation-delay: 8s; }
+        .floating-elements .floating-item:nth-child(6) { left: 55%; animation-delay: 10s; }
+        .floating-elements .floating-item:nth-child(7) { left: 65%; animation-delay: 1s; }
+        .floating-elements .floating-item:nth-child(8) { left: 75%; animation-delay: 3s; }
+        .floating-elements .floating-item:nth-child(9) { left: 85%; animation-delay: 5s; }
+        .floating-elements .floating-item:nth-child(10) { left: 95%; animation-delay: 7s; }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .dashboard-container {
+                margin: 20px auto;
+                padding: 0 15px;
+            }
+
+            .welcome-section {
+                padding: 30px 20px;
+            }
+
+            .welcome-title {
+                font-size: 1.8rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .profile-btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Elements -->
+    <div class="floating-elements">
+        <div class="floating-item">
+            <div class="stat-bubble">📊</div>
+        </div>
+        <div class="floating-item">
+            <div class="post-card"></div>
+        </div>
+        <div class="floating-item">
+            <div class="achievement-badge">🏆 Top Writer</div>
+        </div>
+        <div class="floating-item">
+            <div class="stat-bubble">📝</div>
+        </div>
+        <div class="floating-item">
+            <div class="post-card"></div>
+        </div>
+        <div class="floating-item">
+            <div class="achievement-badge">⭐ Rising Star</div>
+        </div>
+        <div class="floating-item">
+            <div class="stat-bubble">💬</div>
+        </div>
+        <div class="floating-item">
+            <div class="post-card"></div>
+        </div>
+        <div class="floating-item">
+            <div class="achievement-badge">🎯 Consistent</div>
+        </div>
+        <div class="floating-item">
+            <div class="stat-bubble">❤️</div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="logo">
+                <h1>BlogHub</h1>
+            </div>
+            <div class="search-container">
+                <form method="get" action="/Feed/Index">
+                    <input type="text" name="search" class="search-bar" placeholder="Search blogs, topics, authors..." value="@Context.Request.Query["search"]">
+                    <button class="search-btn" type="submit">🔍</button>
+                </form>
+            </div>
+            <div class="header-actions">
+                <button class="create-post-btn" onclick="window.location.href='/BlogPost/Create'">
+                    ✨ Create New Post
+                </button>
+                <div class="user-menu">
+                    <button class="notification-btn" onclick="toggleNotifications()">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <div class="user-profile" onclick="window.location.href='/User/Dashboard'">
+                        @if (hasCustomImage)
+                        {
+                            <img src="@profileImage" alt="@userName" class="user-avatar-img" />
+                        }
+                        else
+                        {
+                            <div class="user-avatar">@userInitials</div>
+                        }
+                        <span>@userName</span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <button class="close-sidebar-button" id="closeSidebarButton">☰</button>
+        <ul class="nav-menu">
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/Feed/Index'">
+                <span>⌂</span> Home Feed
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/EditProfile'">
+                <span>👤</span> Edit Profile
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/Bookmarks'">
+                <span>🔖</span> Bookmarks
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/MyPosts'">
+                <span>📝</span> My Posts
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/Category'">
+                <span>🏷️</span> Categories
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); logout()">
+                <span>⏏️</span> Logout
+            </li>
+        </ul>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="dashboard-container">
+            <!-- Welcome Section -->
+            <div class="welcome-section">
+                <img src="@imageSrc" alt="Profile" class="profile-image" />
+                <h2 class="welcome-title">Welcome back, @userName!</h2>
+                <p class="welcome-subtitle">Here's what's happening with your blog today</p>
+                <div class="profile-actions">
+                    <button type="button" class="profile-btn secondary" onclick="openPhotoModal()" style="cursor: pointer;">
+                        <i class="fas fa-upload"></i> Change Photo
+                    </button>
+                    <a href="/User/EditProfile" class="profile-btn primary">
+                        <i class="fas fa-user-edit"></i> Update Profile
+                    </a>
+                </div>
+            </div>
+
+            <!-- TempData Messages -->
+            @if (TempData["Message"] != null)
+            {
+                <div class="alert alert-warning alert-dismissible fade show" role="alert" style="margin-bottom: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    @TempData["Message"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card posts">
+                    <div class="stat-icon">
+                        <i class="fas fa-pen-alt"></i>
+                    </div>
+                    <div class="stat-title">Total Posts</div>
+                    <div class="stat-value">@Model.TotalPosts</div>
+                </div>
+                <div class="stat-card comments">
+                    <div class="stat-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div class="stat-title">Comments</div>
+                    <div class="stat-value">@Model.TotalComments</div>
+                </div>
+                <div class="stat-card likes">
+                    <div class="stat-icon">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <div class="stat-title">Likes</div>
+                    <div class="stat-value">@Model.TotalLikes</div>
+                </div>
+            </div>
+
+            <!-- Recent Posts Section -->
+            <div class="recent-posts-section">
+                <h3 class="section-title">
+                    <i class="fas fa-clock"></i>
+                    Recent Posts
+                </h3>
+                
+                @if (Model.RecentPosts == null || !Model.RecentPosts.Any())
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-edit"></i>
+                        <h4>No posts yet</h4>
+                        <p>Start your blogging journey by creating your first post!</p>
+                        <a href="/BlogPost/Create" class="create-first-post">
+                            <i class="fas fa-plus"></i> Write Your First Post
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var post in Model.RecentPosts)
+                    {
+                        <div class="post-item">
+                            <div>
+                                <a href="/BlogPost/Details/@post.Id" class="post-title">@post.Title</a>
+                                <div class="post-date">@post.CreatedAt.ToString("MMM dd, yyyy")</div>
+                            </div>
+                            <div>
+                                <i class="fas fa-chevron-right" style="color: #bdc3c7;"></i>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>© 2025 - BlogHub | Made with ❤️ for creators</p>
+        </div>
+    </footer>
+
+    <!-- Photo Upload Modal -->
+    <div id="photoModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-camera me-2"></i>Upload Profile Picture</h3>
+                <span class="close" onclick="closePhotoModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="image-preview-container">
+                    <img id="previewImage" src="@imageSrc" alt="Profile Preview" class="preview-image" />
+                </div>
+                <div class="upload-form">
+                    <input type="file" id="imageInput" accept="image/*" class="file-input" />
+                    <div class="button-group">
+                        <button type="button" class="btn btn-primary" onclick="cropAndUpload()">
+                            <i class="fas fa-crop"></i> Crop & Upload
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="closePhotoModal()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CropperJS CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet" />
+
+    <!-- Anti-forgery token -->
+    @Html.AntiForgeryToken()
+    
+    <!-- JavaScript -->
+    <script src="~/js/site.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        // Simple modal functionality - works immediately
+        function openPhotoModal() {
+            console.log('Opening photo modal...');
+            const modal = document.getElementById('photoModal');
+            if (modal) {
+                modal.style.display = 'block';
+                modal.style.opacity = '1';
+                modal.style.visibility = 'visible';
+                console.log('Modal opened successfully');
+            } else {
+                console.error('Modal element not found');
+                alert('Modal not found. Please refresh the page and try again.');
+            }
+        }
+
+        function closePhotoModal() {
+            console.log('Closing photo modal...');
+            const modal = document.getElementById('photoModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.style.opacity = '0';
+                modal.style.visibility = 'hidden';
+                console.log('Modal closed successfully');
+            }
+            if (window.cropper) {
+                window.cropper.destroy();
+                window.cropper = null;
+            }
+        }
+
+        let imageInput;
+        let previewImage;
+
+        // Initialize elements after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            imageInput = document.getElementById('imageInput');
+            previewImage = document.getElementById('previewImage');
+            
+            // Add event listener for file input
+            if (imageInput) {
+                imageInput.addEventListener('change', handleImageChange);
+            }
+
+            // Close modal when clicking outside
+            window.onclick = function(event) {
+                const modal = document.getElementById('photoModal');
+                if (event.target == modal) {
+                    closePhotoModal();
+                }
+            }
+
+            // Prevent modal from closing when clicking inside modal content
+            const modalContent = document.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+            }
+        });
+
+        function closePhotoModal() {
+            console.log('Closing photo modal...');
+            const modal = document.getElementById('photoModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.style.opacity = '0';
+                modal.style.visibility = 'hidden';
+                console.log('Modal closed successfully');
+            } else {
+                console.error('Modal element not found');
+            }
+            if (window.cropper) {
+                window.cropper.destroy();
+                window.cropper = null;
+            }
+        }
+
+        function handleImageChange(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                if (previewImage) {
+                    previewImage.src = event.target.result;
+
+                    if (window.cropper) window.cropper.destroy();
+                    window.cropper = new Cropper(previewImage, {
+                        aspectRatio: 1,
+                        viewMode: 1,
+                        zoomable: true,
+                        scalable: true,
+                        movable: true,
+                        cropBoxResizable: true
+                    });
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function cropAndUpload() {
+            console.log('Starting crop and upload...');
+            if (!window.cropper) {
+                alert("Please select an image first.");
+                return;
+            }
+
+            try {
+                window.cropper.getCroppedCanvas({
+                    width: 300,
+                    height: 300,
+                    imageSmoothingQuality: 'high'
+                }).toBlob(function (blob) {
+                    console.log('Blob created, uploading...');
+                    const formData = new FormData();
+                    formData.append('imageFile', blob, 'profile.jpg');
+
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    console.log('Token found:', !!token);
+
+                    fetch('/User/UploadProfileImage', {
+                        method: 'POST',
+                        headers: {
+                            'RequestVerificationToken': token || ''
+                        },
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        if (response.ok) {
+                            // Update the profile image on the page immediately
+                            const profileImage = document.querySelector('.profile-image');
+                            const navbarProfileImage = document.querySelector('.navbar-profile-image');
+                            
+                            if (profileImage) {
+                                profileImage.src = URL.createObjectURL(blob);
+                            }
+                            if (navbarProfileImage) {
+                                navbarProfileImage.src = URL.createObjectURL(blob);
+                            }
+                            
+                            closePhotoModal();
+                            showNotification('Profile picture updated successfully!', 'success');
+                        } else {
+                            console.error('Upload failed with status:', response.status);
+                            showNotification("Upload failed. Please try again.", 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification("Upload failed. Please try again.", 'error');
+                    });
+                });
+            } catch (error) {
+                console.error('Error in cropAndUpload:', error);
+                alert('Error processing image. Please try again.');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('photoModal');
+            if (event.target == modal) {
+                closePhotoModal();
+            }
+        }
+
+        // Prevent modal from closing when clicking inside modal content
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalContent = document.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+            }
+        });
+
+        // Notification function
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '10000';
+            notification.style.minWidth = '300px';
+            
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+    </script>
+
+    <style>
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal.show {
+            display: block;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            color: white;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #ff6b6b;
+        }
+
+        .modal-body {
+            padding: 30px;
+            text-align: center;
+        }
+
+        .image-preview-container {
+            margin-bottom: 20px;
+        }
+
+        .preview-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid rgba(255,255,255,0.3);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .file-input {
+            background: rgba(255,255,255,0.1);
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-input:hover {
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.15);
+        }
+
+        .file-input::-webkit-file-upload-button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+    </style>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="close-notifications" onclick="toggleNotifications()">×</button>
+        </div>
+        <div class="notification-list">
+            @if (notifications.Any())
+            {
+                @foreach (var notification in notifications)
+                {
+                    <div class="notification-item">
+                        <div class="notification-icon">🔔</div>
+                        <div class="notification-content">
+                            <strong>@notification.Title</strong>
+                            <p>@Html.Raw(notification.Message)</p>
+                            <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="notification-item">
+                    <div class="notification-icon">🔔</div>
+                    <div class="notification-content">
+                        <p>No notifications yet</p>
+                        <span class="notification-time">Check back later</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</body>
+</html>

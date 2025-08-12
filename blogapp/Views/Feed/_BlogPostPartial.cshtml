@@ -1,0 +1,157 @@
+﻿
+
+@model List<blogapp.Models.BlogPost>
+
+@foreach (var post in Model)
+{
+    var isLiked = post.Likes?.Any(l => l.UserId == ViewBag.UserId) ?? false;
+    var isBookmarked = ((List<int>)ViewBag.BookmarkedIds)?.Contains(post.Id) ?? false;
+    var commentCount = post.Comments?.Count ?? 0;
+    var viewCount = post.ViewCount;
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            @if (!string.IsNullOrEmpty(post.ImagePath) || !string.IsNullOrEmpty(post.VideoPath))
+            {
+                @if (!string.IsNullOrEmpty(post.VideoPath))
+                {
+                    <div class="card-img-top" style="height: 180px; position: relative; overflow: hidden;">
+                        <video controls style="width: 100%; height: 100%; object-fit: cover;">
+                            <source src="@post.VideoPath" type="video/@post.VideoPath.Split('.').Last()">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div style="position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">
+                            <i class="fas fa-play"></i> Video
+                        </div>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(post.ImagePath))
+                {
+                    <img src="@post.ImagePath" class="card-img-top" alt="@post.Title" style="height: 180px; object-fit: cover;">
+                }
+                else
+                {
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+                        <i class="fas fa-image fa-3x text-muted"></i>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+                    <i class="fas fa-image fa-3x text-muted"></i>
+                </div>
+            }
+
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="/BlogPost/Details/@post.Id" class="text-decoration-none">@post.Title</a>
+                </h5>
+                <div class="d-flex gap-2 mb-2">
+                    <small class="text-muted">@post.CreatedAt.ToString("MMM dd, yyyy")</small>
+                    @if (post.IsAdminChoice)
+                    {
+                        <span class="badge bg-warning text-dark">Editor's Choice</span>
+                    }
+                </div>
+                <div class="mb-3">
+                    @foreach (var tag in (post.Tags ?? "").Split(','))
+                    {
+                        if (!string.IsNullOrWhiteSpace(tag))
+                        {
+                            <span class="badge bg-light text-dark me-1">@tag.Trim()</span>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="card-footer bg-white border-top-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex gap-2">
+                        <form method="post" asp-controller="BlogPost" asp-action="Like" asp-route-id="@post.Id" class="mb-0">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-heart @(isLiked ? "text-danger" : "")"></i>
+                                <span>@(post.Likes?.Count ?? 0)</span>
+                            </button>
+                        </form>
+                        <a href="/BlogPost/FeedDetails/@post.Id#comments" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-comment"></i> @commentCount
+                        </a>
+                        <button class="btn btn-sm btn-outline-info" onclick="sharePost(@post.Id, '@post.Title')" title="Share this post">
+                            <i class="fas fa-share-alt"></i> Share
+                        </button>
+                        <form method="post" asp-controller="User" asp-action="ToggleBookmark" asp-route-id="@post.Id">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-sm btn-outline-warning" type="submit">
+                                <i class="fas fa-bookmark @(isBookmarked ? "text-warning" : "")"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+    // Share post functionality
+    function sharePost(postId, postTitle) {
+        const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+        const text = `Check out this blog post: ${postTitle}`;
+        
+        if (navigator.share) {
+            // Use native sharing if available
+            navigator.share({
+                title: postTitle,
+                text: text,
+                url: url
+            }).catch(console.error);
+        } else {
+            // Fallback to copying to clipboard
+            const shareText = `${text}\n\n${url}`;
+            navigator.clipboard.writeText(shareText).then(() => {
+                showNotification('Post link copied to clipboard!', 'success');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = shareText;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showNotification('Post link copied to clipboard!', 'success');
+                } catch (err) {
+                    showNotification('Failed to copy link. Please copy manually.', 'error');
+                }
+                document.body.removeChild(textArea);
+            });
+        }
+    }
+
+    // Notification function
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.zIndex = '9999';
+        notification.style.minWidth = '300px';
+        
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+</script>

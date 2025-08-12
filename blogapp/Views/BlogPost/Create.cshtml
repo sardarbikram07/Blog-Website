@@ -1,0 +1,620 @@
+﻿@model blogapp.Models.BlogPost
+@using Microsoft.EntityFrameworkCore
+@inject blogapp.Data.BlogDBContext db
+
+@{
+    Layout = null; // Don't use the shared layout
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var userInitials = userName.Length > 1 ? string.Join("", userName.Split(' ').Select(n => n[0])).ToUpper() : userName.ToUpper();
+    var userId = Context.Session.GetInt32("UserId");
+    var isCreator = db.BlogPosts.Any(p => p.UserId == userId);
+    var notifications = db.UserNotifications
+        .Where(un => un.UserId == userId)
+        .Include(un => un.Notification)
+        .Where(un => un.Notification != null)
+        .OrderByDescending(un => un.Notification.CreatedAt)
+        .Take(10)
+        .Select(un => un.Notification)
+        .ToList();
+    
+    // Get profile image from session first, then from database as fallback
+    var profileImage = Context.Session.GetString("ProfileImagePath");
+    if (string.IsNullOrEmpty(profileImage) && userId.HasValue)
+    {
+        var user = db.Users.FirstOrDefault(u => u.Id == userId.Value);
+        profileImage = user?.ProfileImagePath ?? "";
+    }
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - Create Post</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    
+    <!-- TinyMCE CDN (Rich Text Editor) -->
+    <script src="https://cdn.tiny.cloud/1/6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    
+    <style>
+        /* Create Post Specific Styles */
+        .create-container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+            border: 1px solid rgba(52, 152, 219, 0.1);
+        }
+
+        .create-title {
+            background: linear-gradient(135deg, #2e65cc 0%, #2f1f97 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            display: block;
+            font-size: 1rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(52, 152, 219, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3498DB;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .form-control::placeholder {
+            color: #999;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(52, 152, 219, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            cursor: pointer;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: #3498DB;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+        }
+
+        .media-upload {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .upload-btn {
+            padding: 12px 20px;
+            border: 2px dashed rgba(52, 152, 219, 0.3);
+            border-radius: 12px;
+            background: rgba(52, 152, 219, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #3498DB;
+            font-weight: 500;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .upload-btn:hover {
+            border-color: #3498DB;
+            background: rgba(52, 152, 219, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .upload-btn input[type="file"] {
+            display: none;
+        }
+
+        .preview-container {
+            margin-top: 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #preview, #videoPreview {
+            display: none;
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+        }
+
+        .submit-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #2ECC71 0%, #3498DB 50%, #9B59B6 100%);
+            background-size: 200% 200%;
+            animation: buttonGradient 3s ease infinite;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(46, 204, 113, 0.3);
+            margin-right: 15px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(46, 204, 113, 0.4);
+        }
+
+        .cancel-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .cancel-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(149, 165, 166, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @@keyframes buttonGradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Floating elements for create page */
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .floating-item {
+            position: absolute;
+            opacity: 0;
+            animation: floatUp 15s infinite linear;
+        }
+
+        .floating-elements .writing-text {
+            font-family: 'Courier New', monospace;
+            color: #3498DB;
+            font-size: 16px;
+            font-weight: 500;
+            background: rgba(52, 152, 219, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            animation: typeWriter 4s steps(20) infinite;
+        }
+
+        .floating-elements .hashtag-pill {
+            background: rgba(46, 204, 113, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            color: #2ECC71;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .floating-elements .photo-frame {
+            width: 120px;
+            height: 120px;
+            background: rgba(52, 152, 219, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transform: rotate(-5deg);
+        }
+
+        @@keyframes typeWriter {
+            0% { width: 0; overflow: hidden; }
+            50% { width: 100%; overflow: hidden; }
+            100% { width: 0; overflow: hidden; }
+        }
+
+        @@keyframes floatUp {
+            0% {
+                transform: translateY(100vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+                transform: translateY(90vh) rotate(20deg) scale(1);
+            }
+            90% {
+                opacity: 0.7;
+                transform: translateY(-10vh) rotate(340deg) scale(1);
+            }
+            100% {
+                transform: translateY(-20vh) rotate(360deg) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .floating-elements .floating-item:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .floating-elements .floating-item:nth-child(2) { left: 15%; animation-delay: 2s; }
+        .floating-elements .floating-item:nth-child(3) { left: 25%; animation-delay: 4s; }
+        .floating-elements .floating-item:nth-child(4) { left: 35%; animation-delay: 6s; }
+        .floating-elements .floating-item:nth-child(5) { left: 45%; animation-delay: 8s; }
+        .floating-elements .floating-item:nth-child(6) { left: 55%; animation-delay: 10s; }
+        .floating-elements .floating-item:nth-child(7) { left: 65%; animation-delay: 1s; }
+        .floating-elements .floating-item:nth-child(8) { left: 75%; animation-delay: 3s; }
+        .floating-elements .floating-item:nth-child(9) { left: 85%; animation-delay: 5s; }
+        .floating-elements .floating-item:nth-child(10) { left: 95%; animation-delay: 7s; }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .create-container {
+                margin: 20px;
+                padding: 25px;
+            }
+
+            .create-title {
+                font-size: 1.8rem;
+            }
+
+            .form-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .submit-btn, .cancel-btn {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .media-upload {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Elements -->
+    <div class="floating-elements">
+        <div class="floating-item">
+            <div class="writing-text">const blog = () => awesome();</div>
+        </div>
+        <div class="floating-item">
+            <div class="hashtag-pill">#WebDev</div>
+        </div>
+        <div class="floating-item">
+            <div class="photo-frame">📸</div>
+        </div>
+        <div class="floating-item">
+            <div class="writing-text">function createBlog() { return success; }</div>
+        </div>
+        <div class="floating-item">
+            <div class="hashtag-pill">#Coding</div>
+        </div>
+        <div class="floating-item">
+            <div class="photo-frame">📱</div>
+        </div>
+        <div class="floating-item">
+            <div class="hashtag-pill">#Tech</div>
+        </div>
+        <div class="floating-item">
+            <div class="writing-text">let creativity = flow();</div>
+        </div>
+        <div class="floating-item">
+            <div class="photo-frame">💻</div>
+        </div>
+        <div class="floating-item">
+            <div class="hashtag-pill">#Blogging</div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="logo">
+                <h1>BlogHub</h1>
+            </div>
+            <div class="search-container">
+                <form method="get" action="/Feed/Index">
+                    <input type="text" name="search" class="search-bar" placeholder="Search blogs, topics, authors..." value="@Context.Request.Query["search"]">
+                    <button class="search-btn" type="submit">🔍</button>
+                </form>
+            </div>
+            <div class="header-actions">
+                <button class="create-post-btn" onclick="window.location.href='/BlogPost/Create'">
+                    ✨ Create New Post
+                </button>
+                <div class="user-menu">
+                    <button class="notification-btn" onclick="toggleNotifications()">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <div class="user-profile" onclick="window.location.href='/User/Dashboard'">
+                        @if (!string.IsNullOrEmpty(profileImage))
+                        {
+                            <img src="@profileImage" alt="@userName" class="user-avatar-img" />
+                        }
+                        else
+                        {
+                        <div class="user-avatar">@userInitials</div>
+                        }
+                        <span>@userName</span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <button class="close-sidebar-button" id="closeSidebarButton">☰</button>
+        <ul class="nav-menu">
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/Feed/Index'">
+                <span>⌂</span> Home Feed
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/EditProfile'">
+                <span>👤</span> Edit Profile
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/Bookmarks'">
+                <span>🔖</span> Bookmarks
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/MyPosts'">
+                <span>📝</span> My Posts
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); window.location.href='/Category'">
+                <span>🏷️</span> Categories
+            </li>
+            <li class="nav-item" onclick="closeSidebar(); logout()">
+                <span>⏏️</span> Logout
+            </li>
+        </ul>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="create-container">
+            <h2 class="create-title">📝 Create a New Blog Post</h2>
+
+            @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+            <form asp-action="Create" enctype="multipart/form-data" method="post">
+                <div class="form-group">
+                    <label asp-for="Title" class="form-label">Title</label>
+                    <input asp-for="Title" class="form-control" placeholder="Enter your blog title..." />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="Content" class="form-label">Content</label>
+                    <textarea asp-for="Content" id="contentEditor" class="form-control" placeholder="Write your story..."></textarea>
+                    <span asp-validation-for="Content" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="Tags" class="form-label">Tags (comma separated)</label>
+                    <input asp-for="Tags" class="form-control" placeholder="e.g. tech, travel, lifestyle" />
+                    <span asp-validation-for="Tags" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="Category" class="form-label">Category</label>
+                    <select asp-for="Category" class="form-select">
+                        <option value="">-- Select Category --</option>
+                        <option>Technology</option>
+                        <option>Travel</option>
+                        <option>Sports</option>
+                        <option>Education</option>
+                        <option>Movies</option>
+                        <option>Cooking</option>
+                        <option>WildLife</option>
+                        <option>Opinion</option>
+                        <option>DailyLife</option>
+                        <option>Other</option>
+                    </select>
+                    <span asp-validation-for="Category" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Media Upload</label>
+                    <div class="media-upload">
+                        <div class="upload-btn" onclick="document.getElementById('imageFile').click()">
+                            <span>🖼️</span> Add Image
+                            <input type="file" id="imageFile" name="imageFile" accept="image/*" style="display: none;" />
+                        </div>
+                        <div class="upload-btn" onclick="document.getElementById('videoFile').click()">
+                            <span>🎥</span> Add Video
+                            <input type="file" id="videoFile" name="videoFile" accept="video/*" style="display: none;" />
+                        </div>
+                    </div>
+                    <div class="preview-container">
+                        <img id="preview" />
+                        <video id="videoPreview" controls></video>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">✅ Publish Post</button>
+                    <a href="/Feed/Index" class="cancel-btn">🏠 Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>© 2025 - BlogHub | Made with ❤️ for creators</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="~/js/site.js"></script>
+    <script>
+        // Initialize TinyMCE
+        tinymce.init({
+            selector: 'textarea#contentEditor',
+            menubar: false,
+            plugins: 'link image lists code preview',
+            toolbar: 'undo redo | bold italic underline | bullist numlist | link image | code preview',
+            height: 300,
+            skin: 'oxide',
+            content_css: 'default',
+            apiKey: '6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9'
+        });
+
+        // Preview functionality
+        document.addEventListener('DOMContentLoaded', function () {
+            const imageInput = document.getElementById('imageFile');
+            const videoInput = document.getElementById('videoFile');
+            const preview = document.getElementById('preview');
+            const videoPreview = document.getElementById('videoPreview');
+
+            imageInput?.addEventListener('change', function () {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                        videoPreview.style.display = 'none';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            videoInput?.addEventListener('change', function () {
+                const file = this.files[0];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    videoPreview.src = url;
+                    videoPreview.style.display = 'block';
+                    preview.style.display = 'none';
+                }
+            });
+
+            // Form validation
+            document.querySelector('form').addEventListener('submit', function (e) {
+                const videoInput = document.getElementById('videoFile');
+                const maxSize = 200 * 1024 * 1024; // 200MB
+
+                if (videoInput && videoInput.files[0] && videoInput.files[0].size > maxSize) {
+                    alert("❌ The selected video exceeds 200 MB.");
+                    e.preventDefault();
+                }
+            });
+        });
+    </script>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="close-notifications" onclick="toggleNotifications()">×</button>
+        </div>
+        <div class="notification-list">
+            @if (notifications.Any())
+            {
+                @foreach (var notification in notifications)
+                {
+                    <div class="notification-item">
+                        <div class="notification-icon">🔔</div>
+                        <div class="notification-content">
+                            <strong>@notification.Title</strong>
+                            <p>@Html.Raw(notification.Message)</p>
+                            <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="notification-item">
+                    <div class="notification-icon">🔔</div>
+                    <div class="notification-content">
+                        <p>No notifications yet</p>
+                        <span class="notification-time">Check back later</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</body>
+</html> 
+
+ 

@@ -1,0 +1,62 @@
+﻿@model (List<blogapp.Models.BlogPost> AllTimeTrending, List<(string Category, blogapp.Models.BlogPost TopPost)> WeeklyTrending)
+
+@{
+    ViewData["Title"] = "Trending Page";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4 text-primary">🔥 Top 5 All-Time Trending Posts</h2>
+
+    @if (Model.AllTimeTrending != null && Model.AllTimeTrending.Any())
+    {
+        int rank = 1;
+        foreach (var post in Model.AllTimeTrending.Where(p => p.Likes.Count > 0).Take(5))
+        {
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">#@rank - @post.Title</h5>
+                    <p class="card-text text-muted">
+                        By <strong>@post.User?.Name</strong> in <em>@post.Category</em> | 👍 @post.Likes.Count Likes
+                    </p>
+                    <a href="@Url.Action("Details", "BlogPost", new { id = post.Id })" class="btn btn-sm btn-outline-primary">View Post</a>
+                </div>
+            </div>
+            rank++;
+        }
+    }
+    else
+    {
+        <p>No trending posts yet.</p>
+    }
+
+    <hr class="my-5" />
+
+    <h2 class="mb-4 text-success">📅 Weekly Trending Posts by Category</h2>
+
+    @if (Model.WeeklyTrending != null && Model.WeeklyTrending.Any())
+    {
+        foreach (var item in Model.WeeklyTrending)
+        {
+            var post = item.TopPost;
+            if (post != null && post.Likes.Count > 0)
+            {
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5>@item.Category</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-title">@post.Title</h6>
+                        <p class="card-text">
+                            By <strong>@post.User?.Name</strong> | 👍 @post.Likes.Count Likes
+                        </p>
+                        <a href="@Url.Action("Details", "BlogPost", new { id = post.Id })" class="btn btn-sm btn-outline-success">View Post</a>
+                    </div>
+                </div>
+            }
+        }
+    }
+    else
+    {
+        <p>No weekly trending data found.</p>
+    }
+</div>

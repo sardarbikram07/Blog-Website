@@ -1,0 +1,518 @@
+﻿@* @model List<blogapp.Models.BlogPost>
+
+<h2>Public Blog Reader</h2>
+
+@foreach (var post in Model)
+{
+    <div class="post-card">
+        <h3>@post.Title</h3>
+        <p>@post.Content.Substring(0, Math.Min(200, post.Content.Length))...</p>
+        <small>By @post.User.Name on @post.CreatedAt.ToShortDateString()</small>
+
+        <form asp-action="AddPublicComment" method="post">
+            <input type="hidden" name="postId" value="@post.Id" />
+            <input type="text" name="author" placeholder="Your name" required />
+            <textarea name="content" placeholder="Write a comment..." required></textarea>
+            <button type="submit">Comment</button>
+        </form>
+
+        <div class="comments">
+            @foreach (var comment in post.Comments)
+            {
+                <p><b>@comment.Author</b>: @comment.Content</p>
+            }
+        </div>
+    </div>
+}
+
+ *@
+
+
+
+@model List<blogapp.Models.BlogPost>
+@using System.Text.RegularExpressions
+
+
+@{
+    ViewData["Title"] = "Welcome to BlogHub";
+    var userName = Context.Session.GetString("UserName");
+    var isLoggedIn = !string.IsNullOrEmpty(userName);
+    var selectedSort = ViewBag.SelectedSort as string ?? "";
+    var searchQuery = ViewBag.SearchQuery as string ?? "";
+
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    @if (!isLoggedIn)
+    {
+        <!-- Hero Section for Non-Logged In Users -->
+        <a href="/Home/Landing" class="btn btn-outline-light btn-lg px-4">
+            <i class="fas fa-user-plus me-2"></i>dont have a account ??
+        </a>
+    }
+    <!-- Blog Feed -->
+    <div class="col-md-9 col-lg-10 ms-sm-auto px-4 py-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+            <h2 class="mb-3 mb-md-0">Blog Feed</h2>
+            <div class="d-flex flex-column flex-md-row gap-2 w-100 w-md-auto">
+                <form method="get" asp-controller="Feed" asp-action="Index" class="w-100">
+                    <div class="input-group">
+                        <input type="text" name="search" value="@ViewBag.SearchQuery" class="form-control" placeholder="Search posts...">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        @if (isLoggedIn)
+        {
+            <!-- Authenticated User View -->
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <div class="col-md-3 col-lg-2 sidebar p-0">
+                        <div class="d-flex flex-column h-100">
+                            <div class="sidebar-header p-3 text-center bg-dark">
+                                <h4 class="text-white mb-0">BlogHub</h4>
+                            </div>
+                            <nav class="flex-grow-1 p-3">
+                                <a href="/User/Dashboard" class="nav-link">
+                                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                                </a>
+                                <a href="/Category" class="nav-link">
+                                    <i class="fas fa-tags me-2"></i>Categories
+                                </a>
+                                <a href="/BlogPost/Create" class="nav-link">
+                                    <i class="fas fa-plus-circle me-2"></i>New Post
+                                </a>
+                                <a href="/User/Bookmarks" class="nav-link">
+                                    <i class="fas fa-bookmark me-2"></i>Bookmarks
+                                </a>
+
+                            </nav>
+                            <div class="p-3 border-top">
+                                <a href="/Auth/Logout" class="nav-link">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blog Feed -->
+                    <div class="col-md-9 col-lg-10 ms-sm-auto px-4 py-4">
+                        
+                        
+                        @if (Model == null || !Model.Any())
+                        {
+                            <div class="alert alert-info">
+                                No blog posts found. Try adjusting your search or <a href="/BlogPost/Create" class="alert-link">create a new post</a>!
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="post-container">
+                                @foreach (var post in Model)
+                                {
+                                    <partial name="_BlogPostCard" model="post" />
+                                }
+                            </div>
+
+                            <div class="text-center mt-5">
+                                <button id="load-more-btn" class="btn btn-primary px-4 py-2">
+                                    <span class="me-2">Load More</span>
+                                    <i class="fas fa-arrow-down"></i>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+
+
+            <!-- Public Reader View -->
+            <div class="container py-5">
+                <h2 class="mb-4 text-center">📖 Public Blog Reader</h2>
+
+                
+
+                @if (!Model.Any())
+                {
+                    <div class="alert alert-info">No blogs available right now.</div>
+                }
+
+                    @foreach (var post in Model)
+                    {
+                        <div class="card mb-4 shadow-sm border-0">
+                            <div class="card-body">
+                                <h3 class="card-title">@post.Title</h3>
+                                <p class="card-text text-muted small">
+                                    By <strong>@post.User?.Name</strong> on @post.CreatedAt.ToString("MMM dd, yyyy")
+                                </p>
+                                <div class="card-text">
+                                    @{
+                                        var content = post.Content ?? "";
+                                        var preview = content.Length > 200 ? content.Substring(0, 200) + "..." : content;
+                                    }
+                                    @{
+                                        var plainText = System.Text.RegularExpressions.Regex.Replace(content, "<.*?>", "");
+                                        var cleanPreview = plainText.Length > 200 ? plainText.Substring(0, 200) + "..." : plainText;
+                                    }
+                                    @cleanPreview
+                                    <a href="/BlogPost/FeedDetails/@post.Id" class="text-primary">Read.....</a>
+                                </div>
+
+                                <!-- ✅ Only include the ShareBox partial (which includes toggle & popup) -->
+                                @Html.Partial("_ShareBox1", post.Id)
+                            </div>
+                        </div>
+                        
+
+                    }
+
+
+
+                    
+
+                
+            </div>
+                // <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+                //     <div id="copyToast" class="toast text-bg-success align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
+                //         <div class="d-flex">
+                //             <div class="toast-body">
+                //                 Link copied to clipboard!
+                //             </div>
+                //             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                //         </div>
+                //     </div>
+                // </div>
+
+
+        }
+    </main>
+
+    <!-- Toast Notification -->
+        <!-- Single toast container -->
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+            <div id="toast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body"></div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #224abe;
+            --dark-color: #2a3f54;
+            --light-color: #f8f9fc;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8f9fc;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 4rem 0;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--dark-color);
+            color: white;
+            min-height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+
+        .sidebar-header {
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            margin-bottom: 0.25rem;
+            transition: all 0.2s;
+        }
+
+            .nav-link:hover, .nav-link.active {
+                color: white;
+                background: rgba(255, 255, 255, 0.1);
+                text-decoration: none;
+            }
+
+        /* Cards */
+        .card {
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+            .card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            }
+
+        /* Responsive Adjustments */
+        @@media (max-width: 768px) {
+            .hero-section {
+                min-height: auto;
+                padding: 6rem 0;
+            }
+
+            .sidebar {
+                min-height: auto;
+                position: relative;
+            }
+        }
+    </style>
+    <script>
+        let skipCount = 5; // Start with 5 if you already loaded 5
+
+        document.getElementById("load-more-btn")?.addEventListener("click", function () {
+            const search = document.getElementById("search-input")?.value || "";
+            const sort = document.getElementById("sort-select")?.value || "newest";
+
+            fetch(`/Home/LoadMore?skip=${skipCount}&search=${encodeURIComponent(search)}&sort=${sort}`)
+                .then(response => {
+                    if (!response.ok) throw new Error("Network error");
+                    return response.text();
+                })
+                .then(html => {
+                    const container = document.getElementById("blog-container");
+                    container.insertAdjacentHTML("beforeend", html);
+                    skipCount += 5;
+                })
+                .catch(error => {
+                    console.error("Load failed:", error);
+                });
+        });
+    </script>
+
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                let skip = @Model.Count();
+                const loadMoreBtn = document.getElementById('load-more-btn');
+                const noMorePosts = document.getElementById('no-more-posts');
+                const postContainer = document.getElementById('post-container');
+                const searchQuery = '@ViewBag.SearchQuery';
+                const sortOption = '@ViewBag.SelectedSort';
+
+                loadMoreBtn?.addEventListener('click', async function() {
+                    // Show loading state
+                    this.disabled = true;
+                    const originalHtml = this.innerHTML;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Loading...';
+
+                    try {
+                        const response = await fetch(`/Feed/LoadMore?skip=${skip}&search=${encodeURIComponent(searchQuery)}&sort=${encodeURIComponent(sortOption)}`);
+
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+
+                        const html = await response.text();
+
+                        if (html.trim() === '') {
+                            // No more posts to load
+                            loadMoreBtn.style.display = 'none';
+                            noMorePosts.style.display = 'block';
+                        } else {
+                            // Append new posts
+                            postContainer.insertAdjacentHTML('beforeend', html);
+                            skip += 5;
+
+                            // Reattach event listeners for new elements if needed
+                            attachShareEvents(); // If you have share functionality
+                        }
+                    } catch (error) {
+                        console.error('Error loading more posts:', error);
+                        alert('Failed to load more posts. Please try again.');
+                    } finally {
+                        // Reset button state
+                        this.disabled = false;
+                        this.innerHTML = originalHtml;
+                    }
+                });
+
+                // Initial check if there are no posts to load
+                if (skip < 5) {
+                    loadMoreBtn.style.display = 'none';
+                    noMorePosts.style.display = 'block';
+                }
+            });
+        </script>
+    <script>
+        $(function () {
+            let skip = @Model.Count();
+            const loadMoreBtn = document.getElementById("load-more-btn");
+
+            loadMoreBtn?.addEventListener("click", async function () {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Loading...';
+
+                try {
+                    const response = await fetch(`/Feed/LoadMore?skip=${skip}&search=@searchQuery&sort=@selectedSort`);
+                    if (!response.ok) throw new Error("Network response was not ok");
+
+                    const html = await response.text();
+                    if (html.trim()) {
+                        document.getElementById("post-container").insertAdjacentHTML("beforeend", html);
+                        skip += 5;
+                    } else {
+                        this.style.display = "none";
+                    }
+                } catch (error) {
+                    console.error("Error:", error);
+                    this.textContent = "Error! Try Again";
+                } finally {
+                    this.disabled = false;
+                }
+            });
+        });
+    </script>
+
+@section Scripts {
+            <script>
+                // Shared function to handle share actions
+                function handleShareAction(postId, platform) {
+                    const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+                    let shareUrl = '';
+
+                    switch(platform) {
+                        case 'facebook':
+                            shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+                            break;
+                        case 'twitter':
+                            shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=Check%20out%20this%20blog%20post`;
+                            break;
+                        case 'linkedin':
+                            shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+                            break;
+                    }
+
+                    if (shareUrl) {
+                        window.open(shareUrl, '_blank', 'width=600,height=400');
+                    }
+                }
+
+                // Function to show toast
+                function showToast(message) {
+                    const toastEl = document.getElementById('toast');
+                    const toastBody = toastEl.querySelector('.toast-body');
+                    toastBody.textContent = message;
+
+                    const toast = new bootstrap.Toast(toastEl);
+                    toast.show();
+                }
+
+                // Function to attach event listeners
+                function attachShareEvents() {
+                    // Toggle share popup
+                    document.addEventListener('click', function(e) {
+                        if (e.target.closest('.share-toggle')) {
+                            e.preventDefault();
+                            const postId = e.target.closest('.share-toggle').getAttribute('data-post-id');
+                            const popup = document.getElementById(`share-popup-${postId}`);
+
+                            // Close all other popups
+                            document.querySelectorAll('.share-popup').forEach(p => {
+                                if (p !== popup) p.style.display = 'none';
+                            });
+
+                            // Toggle current popup
+                            popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+                        }
+
+                        // Close popup when clicking close button
+                        if (e.target.closest('.share-close')) {
+                            e.preventDefault();
+                            e.target.closest('.share-popup').style.display = 'none';
+                        }
+
+                        // Close popup when clicking outside
+                        if (!e.target.closest('.share-container') && !e.target.closest('.share-popup')) {
+                            document.querySelectorAll('.share-popup').forEach(p => p.style.display = 'none');
+                        }
+                    });
+
+                    // Share platform click handlers
+                    document.addEventListener('click', function(e) {
+                        // Handle share platform clicks
+                        if (e.target.closest('.share-option[data-platform]')) {
+                            e.preventDefault();
+                            const platform = e.target.closest('.share-option').getAttribute('data-platform');
+                            const postId = e.target.closest('.share-container').querySelector('.share-toggle').getAttribute('data-post-id');
+                            handleShareAction(postId, platform);
+                        }
+
+                        // Handle copy link
+                        if (e.target.closest('.copy-link')) {
+                            e.preventDefault();
+                            const postId = e.target.closest('.share-container').querySelector('.share-toggle').getAttribute('data-post-id');
+                            const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+
+                            navigator.clipboard.writeText(url).then(() => {
+                                showToast('Link copied to clipboard!');
+                            });
+                        }
+                    });
+                }
+
+                // Initialize when DOM is loaded
+                document.addEventListener('DOMContentLoaded', function() {
+                    attachShareEvents();
+
+                    // Re-attach events after Load More
+                    document.getElementById('load-more-btn')?.addEventListener('click', function() {
+                        setTimeout(attachShareEvents, 100);
+                    });
+                });
+            </script>
+        }
+
+
+</body>
+</html>  
+
+
+

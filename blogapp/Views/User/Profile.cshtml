@@ -1,0 +1,849 @@
+﻿
+
+
+
+
+@model blogapp.ViewModels.UserProfileViewModel
+
+@{
+    Layout = null; // Don't use the shared layout
+    ViewData["Title"] = "My Profile";
+    var profileImage = Context.Session.GetString("ProfileImagePath") ?? "/images/profiles/user-icon.png";
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var userInitials = userName.Length > 1 ? string.Join("", userName.Split(' ').Select(n => n[0])).ToUpper() : userName.ToUpper();
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    
+    <style>
+        /* Profile Specific Styles */
+        .profile-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .profile-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .profile-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .profile-title {
+            background: linear-gradient(135deg, #2e65cc 0%, #2f1f97 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .profile-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .profile-image-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .profile-image {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid rgba(52, 152, 219, 0.2);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .profile-image:hover {
+            transform: scale(1.05);
+            border-color: #3498db;
+        }
+
+        .profile-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-top: 15px;
+        }
+
+        .upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            margin-top: 15px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            display: block;
+            font-size: 1rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(52, 152, 219, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3498DB;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .form-control::placeholder {
+            color: #999;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #3498db;
+            cursor: pointer;
+            z-index: 2;
+            transition: color 0.3s ease;
+        }
+
+        .password-toggle:hover {
+            color: #2ecc71;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .update-btn {
+            width: 100%;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #2ECC71 0%, #3498DB 50%, #9B59B6 100%);
+            background-size: 200% 200%;
+            animation: buttonGradient 3s ease infinite;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(46, 204, 113, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .update-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(46, 204, 113, 0.4);
+        }
+
+        .back-link {
+            text-align: center;
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .back-link a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-link a:hover {
+            color: #2ecc71;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%);
+            color: white;
+            border: none;
+        }
+
+        .alert-danger {
+            background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
+            color: white;
+            border: none;
+        }
+
+        .validation-error {
+            color: #E74C3C;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @@keyframes buttonGradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Floating elements for profile page */
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .floating-item {
+            position: absolute;
+            opacity: 0;
+            animation: floatUp 15s infinite linear;
+        }
+
+        .floating-elements .profile-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(52, 152, 219, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .floating-elements .user-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(46, 204, 113, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        @@keyframes floatUp {
+            0% {
+                transform: translateY(100vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+                transform: translateY(90vh) rotate(20deg) scale(1);
+            }
+            90% {
+                opacity: 0.7;
+                transform: translateY(-10vh) rotate(340deg) scale(1);
+            }
+            100% {
+                transform: translateY(-20vh) rotate(360deg) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .floating-elements .floating-item:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .floating-elements .floating-item:nth-child(2) { left: 15%; animation-delay: 2s; }
+        .floating-elements .floating-item:nth-child(3) { left: 25%; animation-delay: 4s; }
+        .floating-elements .floating-item:nth-child(4) { left: 35%; animation-delay: 6s; }
+        .floating-elements .floating-item:nth-child(5) { left: 45%; animation-delay: 8s; }
+        .floating-elements .floating-item:nth-child(6) { left: 55%; animation-delay: 10s; }
+        .floating-elements .floating-item:nth-child(7) { left: 65%; animation-delay: 1s; }
+        .floating-elements .floating-item:nth-child(8) { left: 75%; animation-delay: 3s; }
+        .floating-elements .floating-item:nth-child(9) { left: 85%; animation-delay: 5s; }
+        .floating-elements .floating-item:nth-child(10) { left: 95%; animation-delay: 7s; }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .profile-card {
+                padding: 30px 20px;
+            }
+
+            .profile-title {
+                font-size: 1.8rem;
+            }
+
+            .profile-image {
+                width: 120px;
+                height: 120px;
+            }
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal.show {
+            display: block;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            color: white;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #ff6b6b;
+        }
+
+        .modal-body {
+            padding: 30px;
+            text-align: center;
+        }
+
+        .image-preview-container {
+            margin-bottom: 20px;
+        }
+
+        .preview-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid rgba(255,255,255,0.3);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .file-input {
+            background: rgba(255,255,255,0.1);
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-input:hover {
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.15);
+        }
+
+        .file-input::-webkit-file-upload-button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Elements -->
+    <div class="floating-elements">
+        <div class="floating-item">
+            <div class="profile-icon">👤</div>
+        </div>
+        <div class="floating-item">
+            <div class="user-icon">✨</div>
+        </div>
+        <div class="floating-item">
+            <div class="profile-icon">🚀</div>
+        </div>
+        <div class="floating-item">
+            <div class="user-icon">💎</div>
+        </div>
+        <div class="floating-item">
+            <div class="profile-icon">🌟</div>
+        </div>
+        <div class="floating-item">
+            <div class="user-icon">🎯</div>
+        </div>
+        <div class="floating-item">
+            <div class="profile-icon">📝</div>
+        </div>
+        <div class="floating-item">
+            <div class="user-icon">💡</div>
+        </div>
+        <div class="floating-item">
+            <div class="profile-icon">🏆</div>
+        </div>
+        <div class="floating-item">
+            <div class="user-icon">⭐</div>
+        </div>
+    </div>
+
+    <!-- Profile Container -->
+    <div class="profile-container">
+        <div class="profile-card">
+            <div class="profile-header">
+                <h2 class="profile-title">My Profile</h2>
+                <p class="profile-subtitle">Manage your account settings</p>
+            </div>
+
+            <div class="profile-image-section">
+                <img src="@profileImage" alt="Profile" class="profile-image" />
+                <div class="profile-name">@userName</div>
+                <button type="button" class="upload-btn" onclick="openPhotoModal()" style="cursor: pointer;">
+                    <i class="fas fa-upload"></i> Change Photo
+                </button>
+            </div>
+
+            <form asp-action="UpdateProfile" method="post">
+                <input type="hidden" asp-for="Id" />
+
+                <div class="form-group">
+                    <label asp-for="Name" class="form-label">Full Name</label>
+                    <input asp-for="Name" class="form-control" placeholder="Enter your full name" />
+                    <span asp-validation-for="Name" class="validation-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="Email" class="form-label">Email Address</label>
+                    <input asp-for="Email" class="form-control" placeholder="Enter your email" />
+                    <span asp-validation-for="Email" class="validation-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="NewPassword" class="form-label">New Password</label>
+                    <div class="input-group">
+                        <input asp-for="NewPassword" type="password" class="form-control" 
+                               placeholder="Leave blank to keep current password" autocomplete="off" />
+                        <i class="fas fa-eye password-toggle" id="togglePassword"></i>
+                    </div>
+                    <span asp-validation-for="NewPassword" class="validation-error"></span>
+                </div>
+
+                <button type="submit" class="update-btn">
+                    <i class="fas fa-save"></i> Update Profile
+                </button>
+
+                <div class="back-link">
+                    <a href="/User/Dashboard">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Photo Upload Modal -->
+    <div id="photoModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-camera me-2"></i>Upload Profile Picture</h3>
+                <span class="close" onclick="closePhotoModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="image-preview-container">
+                    <img id="previewImage" src="@profileImage" alt="Profile Preview" class="preview-image" />
+                </div>
+                <div class="upload-form">
+                    <input type="file" id="imageInput" accept="image/*" class="file-input" />
+                    <div class="button-group">
+                        <button type="button" class="btn btn-primary" onclick="cropAndUpload()">
+                            <i class="fas fa-crop"></i> Crop & Upload
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="closePhotoModal()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CropperJS CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet" />
+
+    <!-- Anti-forgery token -->
+    @Html.AntiForgeryToken()
+
+    <!-- JavaScript -->
+    <script src="~/js/site.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        // Simple modal functionality - works immediately
+        function openPhotoModal() {
+            console.log('Opening photo modal...');
+            const modal = document.getElementById('photoModal');
+            if (modal) {
+                modal.style.display = 'block';
+                modal.style.opacity = '1';
+                modal.style.visibility = 'visible';
+                console.log('Modal opened successfully');
+            } else {
+                console.error('Modal element not found');
+                alert('Modal not found. Please refresh the page and try again.');
+            }
+        }
+
+        function closePhotoModal() {
+            console.log('Closing photo modal...');
+            const modal = document.getElementById('photoModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.style.opacity = '0';
+                modal.style.visibility = 'hidden';
+                console.log('Modal closed successfully');
+            }
+            if (window.cropper) {
+                window.cropper.destroy();
+                window.cropper = null;
+            }
+        }
+
+        // Password toggle functionality
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.querySelector('input[type="password"]');
+
+        togglePassword.addEventListener('click', function () {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        // Form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const name = document.querySelector('input[name="Name"]').value;
+            const email = document.querySelector('input[name="Email"]').value;
+            
+            if (!name || !email) {
+                e.preventDefault();
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            // Basic email validation - check for required fields
+            if (!email || email.trim() === '') {
+                e.preventDefault();
+                alert('Please enter your email address');
+                return;
+            }
+        });
+
+        // Photo Upload Modal Functionality
+        let imageInput;
+        let previewImage;
+
+        // Initialize elements after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            imageInput = document.getElementById('imageInput');
+            previewImage = document.getElementById('previewImage');
+            
+            // Add event listener for file input
+            if (imageInput) {
+                imageInput.addEventListener('change', handleImageChange);
+            }
+
+            // Close modal when clicking outside
+            window.onclick = function(event) {
+                const modal = document.getElementById('photoModal');
+                if (event.target == modal) {
+                    closePhotoModal();
+                }
+            }
+
+            // Prevent modal from closing when clicking inside modal content
+            const modalContent = document.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+            }
+        });
+
+        function closePhotoModal() {
+            console.log('Closing photo modal...');
+            const modal = document.getElementById('photoModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.style.opacity = '0';
+                modal.style.visibility = 'hidden';
+                console.log('Modal closed successfully');
+            } else {
+                console.error('Modal element not found');
+            }
+            if (window.cropper) {
+                window.cropper.destroy();
+                window.cropper = null;
+            }
+        }
+
+        function handleImageChange(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                if (previewImage) {
+                    previewImage.src = event.target.result;
+
+                    if (window.cropper) window.cropper.destroy();
+                    window.cropper = new Cropper(previewImage, {
+                        aspectRatio: 1,
+                        viewMode: 1,
+                        zoomable: true,
+                        scalable: true,
+                        movable: true,
+                        cropBoxResizable: true
+                    });
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function cropAndUpload() {
+            console.log('Starting crop and upload...');
+            if (!window.cropper) {
+                alert("Please select an image first.");
+                return;
+            }
+
+            try {
+                window.cropper.getCroppedCanvas({
+                    width: 300,
+                    height: 300,
+                    imageSmoothingQuality: 'high'
+                }).toBlob(function (blob) {
+                    console.log('Blob created, uploading...');
+                    const formData = new FormData();
+                    formData.append('imageFile', blob, 'profile.jpg');
+
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    console.log('Token found:', !!token);
+
+                    fetch('/User/UploadProfileImage', {
+                        method: 'POST',
+                        headers: {
+                            'RequestVerificationToken': token || ''
+                        },
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        if (response.ok) {
+                            // Update the profile image on the page immediately
+                            const profileImage = document.querySelector('.profile-image');
+                            const navbarProfileImage = document.querySelector('.navbar-profile-image');
+                            
+                            if (profileImage) {
+                                profileImage.src = URL.createObjectURL(blob);
+                            }
+                            if (navbarProfileImage) {
+                                navbarProfileImage.src = URL.createObjectURL(blob);
+                            }
+                            
+                            closePhotoModal();
+                            showNotification('Profile picture updated successfully!', 'success');
+                        } else {
+                            console.error('Upload failed with status:', response.status);
+                            showNotification("Upload failed. Please try again.", 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification("Upload failed. Please try again.", 'error');
+                    });
+                });
+            } catch (error) {
+                console.error('Error in cropAndUpload:', error);
+                alert('Error processing image. Please try again.');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('photoModal');
+            if (event.target == modal) {
+                closePhotoModal();
+            }
+        }
+
+        // Prevent modal from closing when clicking inside modal content
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalContent = document.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+            }
+        });
+
+        // Notification function
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '10000';
+            notification.style.minWidth = '300px';
+            
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+@model blogapp.Models.BlogPost
+@using System.Text.RegularExpressions
+
+@{
+    Layout = null; // Don't use the shared layout
+    ViewData["Title"] = Model.Title;
+    string cleanedContent = Regex.Replace(Model.Content ?? "", @"\s*data-(start|end)=""[^""]*""", "", RegexOptions.IgnoreCase);
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - @Model.Title</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <style>
+        /* Clean, minimal styles for shared blog posts */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+        }
+        
+        .clean-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        .blog-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .blog-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            line-height: 1.2;
+        }
+        
+        .blog-meta {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        
+        .blog-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #2c3e50;
+        }
+        
+        .blog-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .blog-content video {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .share-section {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .share-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 10px;
+        }
+        
+        .share-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        
+        .back-to-bloghub {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+        
+        .back-to-bloghub:hover {
+            color: #5a6fd8;
+        }
+        /* --- Professional Toast Styles --- */
+        .custom-toast {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.98);
+            background: rgba(40, 48, 72, 0.85);
+            backdrop-filter: blur(8px) saturate(120%);
+            color: #fff;
+            padding: 32px 40px 24px 40px;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25), 0 1.5px 8px 0 rgba(0,0,0,0.10);
+            z-index: 9999;
+            font-size: 1.15rem;
+            text-align: center;
+            min-width: 320px;
+            max-width: 90vw;
+            animation: fadeInSlide 0.35s cubic-bezier(.4,1.4,.6,1) forwards;
+        }
+        .custom-toast .toast-title {
+            font-weight: 600;
+            font-size: 1.08rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            letter-spacing: 0.01em;
+        }
+        .custom-toast .toast-title i {
+            font-size: 1.2em;
+            color: #00fff7;
+            filter: drop-shadow(0 0 2px #00fff7cc);
+        }
+        .custom-toast .toast-btn {
+            margin-top: 20px;
+            background: linear-gradient(90deg, #00fff7 0%, #00cfc7 100%);
+            color: #232946;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 32px;
+            font-weight: 600;
+            font-size: 1.05rem;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+        }
+        .custom-toast .toast-btn:hover {
+            background: linear-gradient(90deg, #00cfc7 0%, #00fff7 100%);
+            color: #1a1a2e;
+            box-shadow: 0 4px 16px rgba(0,255,247,0.10);
+        }
+        .custom-toast .toast-message {
+            font-size: 1.08rem;
+            margin-top: 2px;
+            margin-bottom: 0;
+            letter-spacing: 0.01em;
+        }
+        @@keyframes fadeInSlide {
+            from { opacity: 0; transform: translate(-50%, -60%) scale(0.95); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        .custom-toast.show {
+            display: block;
+            animation: fadeInSlide 0.35s cubic-bezier(.4,1.4,.6,1) forwards;
+        }
+        @@media (max-width: 500px) {
+            .custom-toast {
+                padding: 18px 8vw 14px 8vw;
+                min-width: 0;
+                font-size: 1rem;
+            }
+            .custom-toast .toast-btn {
+                padding: 8px 18px;
+                font-size: 0.98rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="clean-container">
+        <!-- Blog Header -->
+        <div class="blog-header">
+            <h1 class="blog-title">@Model.Title</h1>
+            <div class="blog-meta">
+                By <strong>@(Model.User?.Name ?? "Unknown")</strong> • @Model.CreatedAt.ToString("MMM dd, yyyy")
+            </div>
+        </div>
+
+        <!-- Blog Content -->
+        <div class="blog-content">
+            @if (!string.IsNullOrEmpty(Model.ImagePath))
+            {
+                <img src="@Model.ImagePath" alt="@Model.Title" />
+            }
+            
+            @if (!string.IsNullOrEmpty(Model.VideoPath))
+            {
+                <video controls>
+                    <source src="@Model.VideoPath" type="video/@Model.VideoPath.Split('.').Last()">
+                    Your browser does not support the video tag.
+                </video>
+            }
+            
+            @Html.Raw(Model.Content)
+        </div>
+
+        <!-- Share Section -->
+        <div class="share-section">
+            <button class="share-btn" onclick="sharePost()">
+                <i class="fas fa-share-alt"></i> Share this post
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Toast -->
+    <div class="custom-toast" id="customToast">
+        <div class="toast-title"><i class="fas fa-link"></i> Link Copied</div>
+        <div class="toast-message">Post link copied to clipboard!</div>
+        <button class="toast-btn" onclick="hideToast()">OK</button>
+    </div>
+
+    <script>
+        function showToast() {
+            const toast = document.getElementById('customToast');
+            toast.classList.add('show');
+            // Auto-hide after 2 seconds
+            toast._timeout = setTimeout(hideToast, 2000);
+        }
+        function hideToast() {
+            const toast = document.getElementById('customToast');
+            toast.classList.remove('show');
+            if (toast._timeout) clearTimeout(toast._timeout);
+        }
+        // Hide toast on click outside
+        document.addEventListener('click', function(e) {
+            const toast = document.getElementById('customToast');
+            if (toast.classList.contains('show') && !toast.contains(e.target) && !e.target.classList.contains('share-btn')) {
+                hideToast();
+            }
+        });
+        function sharePost() {
+            const url = window.location.href;
+            const title = '@Model.Title';
+            const text = 'Check out this blog post: @Model.Title';
+            if (navigator.share && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+                navigator.share({
+                    title: title,
+                    text: text,
+                    url: url
+                }).then(() => {
+                    console.log('Shared successfully');
+                }).catch((error) => {
+                    console.log('Share cancelled or failed:', error);
+                    copyToClipboard();
+                });
+            } else {
+                copyToClipboard();
+            }
+        }
+        function copyToClipboard() {
+            const url = window.location.href;
+            const text = `Check out this blog post: @Model.Title\n\n${url}`;
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast();
+                }).catch(() => {
+                    fallbackCopyToClipboard(text);
+                });
+            } else {
+                fallbackCopyToClipboard(text);
+            }
+        }
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast();
+            } catch (err) {
+                alert('Failed to copy link. Please copy manually.');
+            }
+            document.body.removeChild(textArea);
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,127 @@
+﻿
+
+
+
+@{
+    ViewData["Title"] = "Send Notification";
+}
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" id="successAlert">
+        <h4>@TempData["Message"]</h4>
+        <div class="mt-3 d-flex gap-2">
+            <a href="/Admin/Dashboard" class="btn btn-primary">← Back to Dashboard</a>
+            <a href="/Admin/SendNotification" class="btn btn-success">✉ Send Another</a>
+        </div>
+    </div>
+
+    <script>
+        // Auto-hide and redirect
+        setTimeout(function() {
+            var alert = document.getElementById('successAlert');
+            if (alert) {
+                alert.style.opacity = '0';
+                setTimeout(function() {
+                    window.location.href = '/Admin/Dashboard';
+                }, 500);
+            }
+        }, 2500);
+    </script>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        <h4>@TempData["Error"]</h4>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0"><i class="fas fa-bell me-2"></i>Send Notification</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" asp-controller="Admin" asp-action="SendNotification">
+                        @Html.AntiForgeryToken()
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Title</label>
+                            <input type="text" name="title" class="form-control" required
+                                   placeholder="Enter notification title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Message</label>
+                            <textarea name="message" id="contentEditor" class="form-control"
+                                      rows="6" required placeholder="Write your notification content"></textarea>
+                        </div>
+                        <div class="form-check form-switch mb-4">
+                            <input class="form-check-input" type="checkbox" name="isForCreators"
+                                   id="isForCreators" @(ViewBag.IsForCreators as bool? == true ? "checked" : "") />
+                            <label class="form-check-label" for="isForCreators">
+                                <i class="fas fa-user-edit me-1"></i> Send to Creators Only
+                            </label>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary py-2">
+                                <i class="fas fa-paper-plane me-2"></i> Send Notification
+                            </button>
+                            <a href="/Admin/Dashboard" class="btn btn-outline-secondary py-2">
+                                <i class="fas fa-arrow-left me-2"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .form-control, .form-select {
+            border-radius: 0.375rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .card {
+            border-radius: 0.5rem;
+            border: none;
+        }
+
+        .form-check-input:checked {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+
+        #successAlert {
+            transition: opacity 0.5s ease-out;
+        }
+    </style>
+}
+
+@section Scripts {
+    <!-- TinyMCE CDN (Rich Text Editor) -->
+    <script src="https://cdn.tiny.cloud/1/6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+        tinymce.init({
+            selector: 'textarea#contentEditor',
+            menubar: false,
+            plugins: 'link lists code preview emoticons',
+            toolbar: 'undo redo | bold italic underline | emoticons | bullist numlist | link | code preview',
+            height: 300,
+            content_style: 'body { font-family: Arial, sans-serif; font-size: 14px }',
+            setup: function (editor) {
+                editor.on('change', function () {
+                    editor.save();
+                });
+            },
+            apiKey: '6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9'
+        });
+    </script>
+    <partial name="_ValidationScriptsPartial" />
+}

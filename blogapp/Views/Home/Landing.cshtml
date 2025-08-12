@@ -1,0 +1,1278 @@
+﻿@model List<blogapp.Models.BlogPost>
+@using System.Linq
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Welcome to BlogHub";
+    // Set up ViewBag properties as in Feed/Index if needed
+    var userId = Context.Session.GetInt32("UserId");
+    var bookmarkedIds = new List<int>();
+    if (userId != null)
+    {
+        var db = Context.RequestServices.GetService<blogapp.Data.BlogDBContext>();
+        if (db != null)
+        {
+            bookmarkedIds = db.Bookmarks.Where(b => b.UserId == userId).Select(b => b.PostId).ToList();
+        }
+    }
+    ViewBag.UserId = userId;
+    ViewBag.BookmarkedIds = bookmarkedIds;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - BlogHub</title>
+    <meta name="description" content="BlogHub - Share your thoughts with the world." />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --success-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            --dark-bg: #0f172a;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Enhanced Navbar */
+        .navbar {
+            background: rgba(15, 23, 42, 0.95) !important;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.75rem;
+            color: #fff !important;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .navbar-brand i {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.5rem;
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 0.5rem 1rem !important;
+        }
+
+        .nav-link:hover {
+            color: #fff !important;
+            transform: translateY(-1px);
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: var(--primary-gradient);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .nav-link:hover::after {
+            width: 80%;
+        }
+
+        /* Enhanced Hero Section */
+        .hero-section {
+            min-height: 100vh;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(147, 51, 234, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 60% 60%, rgba(16, 185, 129, 0.2) 0%, transparent 50%),
+                linear-gradient(135deg,rgb(14, 6, 63) 0%,rgb(65, 11, 38) 50%,rgb(16, 39, 77) 100%);
+            position: relative;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all 0.5s ease;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="white" opacity="0.15"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+            animation: grainMove 20s linear infinite;
+        }
+
+        .hero-section::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 30% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        @@keyframes grainMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(100px, 100px); }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 800px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .hero-content:hover {
+            transform: translateY(-5px);
+        }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 50%, #e2e8f0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInUp 1s ease-out;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+        }
+
+        .hero-title:hover {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #ffffff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            transform: scale(1.02);
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1.1rem, 2vw, 1.25rem);
+            font-weight: 400;
+            margin-bottom: 2.5rem;
+            opacity: 0.9;
+            animation: fadeInUp 1s ease-out 0.2s both;
+            transition: all 0.3s ease;
+            line-height: 1.6;
+        }
+
+        .hero-subtitle:hover {
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1s ease-out 0.4s both;
+            transition: all 0.3s ease;
+        }
+
+        .hero-buttons:hover {
+            transform: translateY(-3px);
+        }
+
+        .btn-primary-custom {
+            background: linear-gradient(135deg,rgb(12, 9, 44) 0%,rgb(59, 12, 36) 50%, #3b82f6 100%);
+            color: #fff;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(18, 5, 49, 0.4);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-primary-custom::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            transition: left 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-7px) scale(1.06);
+            box-shadow: 0 25px 60px rgba(139, 92, 246, 0.7);
+            color: #fff;
+            background: linear-gradient(135deg,rgb(47, 18, 75) 0%,rgb(80, 22, 52) 50%, #60a5fa 100%);
+        }
+
+        .btn-primary-custom:hover::before {
+            left: 100%;
+        }
+
+        .btn-secondary-custom {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-secondary-custom::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+            transition: left 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .btn-secondary-custom:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.7);
+            transform: translateY(-7px) scale(1.06);
+            color: #fff;
+            box-shadow: 0 18px 45px rgba(255, 255, 255, 0.19);
+        }
+
+        .btn-secondary-custom:hover::before {
+            left: 100%;
+        }
+
+        /* Enhanced Features Section */
+        .features-section {
+            background: #fff;
+            padding: 6rem 0;
+            position: relative;
+        }
+
+        .features-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(to bottom, #f8fafc, #fff);
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 1rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 4rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .feature-card {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border-color: transparent;
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-gradient);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+            color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .feature-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Enhanced Blog Section */
+        .blog-section {
+            background: #f8fafc;
+            padding: 6rem 0;
+            position: relative;
+        }
+
+        .blog-toggle-btn {
+            background: var(--primary-gradient);
+            color: #fff;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .blog-toggle-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+            color: #fff;
+        }
+
+        /* Blog Post Styling (matching feed layout) */
+        .blog-post {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .blog-post:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .author-avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg,rgb(13, 21, 54) 0%,rgb(37, 4, 70) 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .author-avatar-img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .author-info h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .post-time {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .post-content {
+            flex: 1;
+        }
+
+        .post-content h2 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 15px;
+            line-height: 1.3;
+        }
+
+        .post-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .read-more-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+            display: inline-block;
+            pointer-events: auto;
+        }
+
+        .read-more-link:hover {
+            color: #5a6fd8;
+        }
+
+        .post-image {
+            width: 100%;
+            max-width: 100%;
+            height: 300px;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+        }
+
+        .post-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            border-radius: 10px;
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .post-video {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            display: block;
+            transition: transform 0.3s ease;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .video-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            z-index: 10;
+        }
+
+        .video-badge i {
+            margin-right: 4px;
+        }
+
+        .blog-post:hover .post-image img,
+        .blog-post:hover .post-video {
+            transform: scale(1.02);
+        }
+
+        /* Custom video controls styling */
+        .post-video::-webkit-media-controls {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+        }
+
+        .post-video::-webkit-media-controls-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+        }
+
+        .post-video::-webkit-media-controls-play-button {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+        }
+
+        .post-video::-webkit-media-controls-timeline {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        .post-video::-webkit-media-controls-current-time-display,
+        .post-video::-webkit-media-controls-time-remaining-display {
+            color: white;
+            font-weight: 500;
+        }
+
+        .post-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .tag {
+            background: #f0f0f0;
+            color: #666;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .post-actions {
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            margin-top: 20px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .action-btn span {
+            font-size: 18px;
+        }
+
+        .like-count {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Enhanced Footer */
+        .footer {
+            background: var(--dark-bg);
+            color: #fff;
+            padding: 3rem 0 2rem;
+            position: relative;
+        }
+
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--primary-gradient);
+        }
+
+        .footer-brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .footer-brand i {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .footer-social a {
+            width: 45px;
+            height: 45px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .footer-social a:hover {
+            background: var(--primary-gradient);
+            transform: translateY(-3px);
+            color: #fff;
+        }
+
+        .footer-copyright {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.875rem;
+            margin-top: 2rem;
+        }
+
+        /* Animations */
+        @@keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @@keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn-primary-custom,
+            .btn-secondary-custom {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .feature-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .blog-post {
+                padding: 1.5rem;
+            }
+
+            .navbar-brand {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Loading animation for blog section */
+        .blog-section.fade-in {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Enhanced scroll behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-gradient);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a5acd 100%);
+        }
+    </style>
+</head>
+<body>
+    <!-- Enhanced Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-feather-alt"></i>
+                <span>BlogHub</span>
+            </a>
+            <span class="navbar-text d-none d-md-inline ms-2 fw-light" style="font-size:1rem; color:rgba(255,255,255,0.7); letter-spacing:0.5px;">Inspire. Create. Connect.</span>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/Auth/Login"><i class="fas fa-sign-in-alt me-1"></i>Login</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/Auth/Register"><i class="fas fa-user-plus me-1"></i>Register</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/Admin/Login"><i class="fas fa-shield-alt me-1"></i>Admin</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Enhanced Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">Unleash Your Voice on <span class="floating">BlogHub</span></h1>
+            <p class="hero-subtitle">Create, share, and inspire with a beautiful, modern blog platform.<br>Join a vibrant community of creators and readers.</p>
+            <div class="hero-buttons">
+                <a href="/Auth/Register" class="btn btn-primary-custom">Get Started Free</a>
+                <a href="/Auth/Login" class="btn btn-secondary-custom"> Login</a>
+            </div>
+            <div class="mt-4">
+                <span class="text-light-50" style="opacity: 0.8; font-size: 0.9rem;">Trusted by thousands of creators worldwide</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Features Section -->
+    <section class="features-section">
+    <div class="container">
+            <h2 class="section-title">Why Choose BlogHub?</h2>
+            <p class="section-subtitle">Everything you need to create, publish, and grow your blog with style and ease.</p>
+            <div class="row g-4">
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-pen-nib"></i>
+                        </div>
+                        <h5 class="feature-title">Stunning Editor</h5>
+                        <p class="feature-description">Write and format posts with our intuitive, distraction-free editor supporting markdown and rich text formatting.</p>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h5 class="feature-title">Community & Engagement</h5>
+                        <p class="feature-description">Connect with readers, get feedback, and grow your audience with built-in comments and sharing tools.</p>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h5 class="feature-title">Secure & Reliable</h5>
+                        <p class="feature-description">Your content is protected with enterprise-grade security and always available with 99.9% uptime guarantee.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Enhanced Blog Section -->
+    <section class="blog-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <button id="toggleBlogsBtn" class="btn blog-toggle-btn">Show Latest Blogs</button>
+            </div>
+            <div id="latestBlogsSection" style="display:none;">
+                @if (Model != null && Model.Any())
+                {
+                    @Html.Partial("~/Views/Feed/_BlogPostPartialList.cshtml", Model)
+                }
+                else
+                {
+                    <div class="alert alert-info text-center" style="border-radius: 15px; border: none; background: rgba(102, 126, 234, 0.1); color: #667eea;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No blog posts yet. Be the first to create one!
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <!-- Enhanced Footer -->
+    <footer class="footer">
+        <div class="container text-center">
+            <div class="footer-brand">
+                <i class="fas fa-feather-alt"></i>
+                <span>BlogHub</span>
+            </div>
+            <p class="mb-3" style="opacity: 0.8;">Made with <i class="fas fa-heart text-danger"></i> for creators</p>
+            <div class="footer-social">
+                <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+            </div>
+            <div class="footer-copyright">
+                &copy; @DateTime.Now.Year BlogHub. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.getElementById('toggleBlogsBtn');
+            var section = document.getElementById('latestBlogsSection');
+            
+            // Check if localStorage is supported and get previous state
+            var wasShown = false;
+            if (typeof(Storage) !== "undefined") {
+                // localStorage is supported
+                wasShown = localStorage.getItem('blogsShown') === 'true';
+            } else {
+                // localStorage is not supported - fallback to hidden
+                wasShown = false;
+            }
+            
+            if (wasShown) {
+                // Show blogs if they were previously shown
+                section.style.display = 'block';
+                btn.textContent = 'Hide Latest Blogs';
+                    setTimeout(() => {
+                        section.classList.add('fade-in');
+                    }, 10);
+                } else {
+                // Keep hidden by default
+                section.style.display = 'none';
+                btn.textContent = 'Show Latest Blogs';
+            }
+            
+            btn.addEventListener('click', function() {
+                var isShown = section.style.display === 'block';
+                
+                if (isShown) {
+                    // Hide the section
+                    section.style.display = 'none';
+                    btn.textContent = 'Show Latest Blogs';
+                    section.classList.remove('fade-in');
+                    // Save state only if localStorage is supported
+                    if (typeof(Storage) !== "undefined") {
+                        localStorage.setItem('blogsShown', 'false');
+                    }
+                } else {
+                    // Show the section
+                    section.style.display = 'block';
+                    btn.textContent = 'Hide Latest Blogs';
+                    // Save state only if localStorage is supported
+                    if (typeof(Storage) !== "undefined") {
+                        localStorage.setItem('blogsShown', 'true');
+                    }
+                    setTimeout(() => {
+                        section.classList.add('fade-in');
+                    }, 10);
+                }
+            });
+
+            // Smooth scrolling for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+
+            // Navbar scroll effect
+            window.addEventListener('scroll', function() {
+                const navbar = document.querySelector('.navbar');
+                if (window.scrollY > 50) {
+                    navbar.style.background = 'rgba(15, 23, 42, 0.98)';
+                } else {
+                    navbar.style.background = 'rgba(15, 23, 42, 0.95)';
+                }
+            });
+
+            // Hero section mouse movement effect
+            const heroSection = document.querySelector('.hero-section');
+            const heroContent = document.querySelector('.hero-content');
+            
+            if (heroSection && heroContent) {
+                heroSection.addEventListener('mousemove', function(e) {
+                    const { clientX, clientY } = e;
+                    const { innerWidth, innerHeight } = window;
+                    
+                    const x = (clientX / innerWidth - 0.5) * 20;
+                    const y = (clientY / innerHeight - 0.5) * 20;
+                    
+                    heroContent.style.transform = `translate(${x}px, ${y}px)`;
+                });
+                
+                heroSection.addEventListener('mouseleave', function() {
+                    heroContent.style.transform = 'translate(0, 0)';
+                });
+            }
+        });
+
+        // Share post functionality
+        function sharePost(postId, postTitle) {
+            const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+            const text = `Check out this blog post: ${postTitle}`;
+            
+            if (navigator.share && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+                navigator.share({
+                    title: postTitle,
+                    text: text,
+                    url: url
+                }).then(() => {
+                    showNotification('Shared successfully!', 'success');
+                }).catch((error) => {
+                    console.log('Share cancelled or failed:', error);
+                    copyToClipboard(text, url);
+                });
+            } else {
+                copyToClipboard(text, url);
+            }
+        }
+
+        // Helper function to copy to clipboard
+        function copyToClipboard(text, url) {
+            const shareText = `${text}\n\n${url}`;
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showNotification('Post link copied to clipboard!', 'success');
+                }).catch(() => {
+                    fallbackCopyToClipboard(shareText);
+                });
+            } else {
+                fallbackCopyToClipboard(shareText);
+            }
+        }
+
+        // Fallback for older browsers
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showNotification('Post link copied to clipboard!', 'success');
+            } catch (err) {
+                showNotification('Failed to copy link. Please copy manually.', 'error');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        // Authentication check function
+        function isUserAuthenticated() {
+            return document.cookie.includes('ASP.NET_SessionId') || 
+                   localStorage.getItem('isAuthenticated') === 'true' ||
+                   sessionStorage.getItem('isAuthenticated') === 'true' ||
+                   document.cookie.includes('UserId') ||
+                   document.cookie.includes('UserName');
+        }
+
+        // Enhanced authentication check with server verification
+        async function checkAuthenticationStatus() {
+            try {
+                const response = await fetch('/Auth/CheckAuthStatus', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.isAuthenticated || false;
+                }
+            } catch (error) {
+                console.log('Auth check failed, using fallback method');
+            }
+            
+            return isUserAuthenticated();
+        }
+
+        // Function to show authentication modal
+        function showAuthModal() {
+            const modal = document.createElement('div');
+            modal.className = 'auth-modal-overlay';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                backdrop-filter: blur(5px);
+            `;
+
+            modal.innerHTML = `
+                <div class="auth-modal" style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 2rem;
+                    max-width: 400px;
+                    width: 90%;
+                    text-align: center;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                    animation: modalSlideIn 0.3s ease-out;
+                ">
+                    <div style="margin-bottom: 1.5rem;">
+                        <i class="fas fa-user-lock" style="font-size: 3rem; color: #667eea; margin-bottom: 1rem;"></i>
+                        <h3 style="color: #333; margin-bottom: 0.5rem;">Join BlogHub</h3>
+                        <p style="color: #666; font-size: 0.9rem;">Sign in or create an account to interact with posts</p>
+            </div>
+                    <div style="display: flex; gap: 1rem; flex-direction: column;">
+                        <button onclick="window.location.href='/Auth/Login'" style="
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            border: none;
+                            padding: 12px 24px;
+                            border-radius: 25px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+                        <button onclick="window.location.href='/Auth/Register'" style="
+                            background: transparent;
+                            color: #667eea;
+                            border: 2px solid #667eea;
+                            padding: 12px 24px;
+                            border-radius: 25px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                            <i class="fas fa-user-plus me-2"></i>Create Account
+                        </button>
+                        <button onclick="closeAuthModal()" style="
+                            background: transparent;
+                            color: #666;
+                            border: none;
+                            padding: 8px 16px;
+                            cursor: pointer;
+                            font-size: 0.9rem;
+                            margin-top: 1rem;
+                        ">Maybe Later</button>
+    </div>
+</div>
+            `;
+
+            // Add CSS animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @@keyframes modalSlideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-50px) scale(0.9);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
+            document.body.appendChild(modal);
+
+            // Close modal when clicking outside
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeAuthModal();
+                }
+            });
+        }
+
+        // Function to close auth modal
+        function closeAuthModal() {
+            const modal = document.querySelector('.auth-modal-overlay');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // Handle like button click
+        async function handleLikeClick(postId, button) {
+            const isAuthenticated = await checkAuthenticationStatus();
+            if (!isAuthenticated) {
+                showAuthModal();
+                return;
+            }
+            
+            showNotification('You liked this post!', 'success');
+        }
+
+        // Handle comment button click
+        async function handleCommentClick(postId) {
+            const isAuthenticated = await checkAuthenticationStatus();
+            if (!isAuthenticated) {
+                showAuthModal();
+                return;
+            }
+            
+            window.location.href = `/BlogPost/Details/${postId}#comments`;
+        }
+
+        // Handle bookmark button click
+        async function handleBookmarkClick(postId, button) {
+            const isAuthenticated = await checkAuthenticationStatus();
+            if (!isAuthenticated) {
+                showAuthModal();
+                return;
+            }
+            
+            showNotification('Post bookmarked!', 'info');
+        }
+
+        // Notification function
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.minWidth = '300px';
+            notification.style.borderRadius = '10px';
+            notification.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+            
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html> 

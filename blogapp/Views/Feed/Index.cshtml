@@ -1,0 +1,526 @@
+﻿
+@model IEnumerable<blogapp.Models.BlogPost>
+@using System.Linq
+@using Microsoft.EntityFrameworkCore
+@inject blogapp.Data.BlogDBContext db
+
+@{
+    Layout = null; // Don't use the shared layout
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var userInitials = userName.Length > 1 ? string.Join("", userName.Split(' ').Select(n => n[0])).ToUpper() : userName.ToUpper();
+    
+    var userId = Context.Session.GetInt32("UserId");
+    
+    // Get profile image from session first, then from database as fallback
+    var profileImage = Context.Session.GetString("ProfileImagePath");
+    if (string.IsNullOrEmpty(profileImage) && userId.HasValue)
+    {
+        var user = db.Users.FirstOrDefault(u => u.Id == userId.Value);
+        profileImage = user?.ProfileImagePath ?? "";
+    }
+    
+    var hasProfileImage = !string.IsNullOrEmpty(profileImage);
+    var isCreator = db.BlogPosts.Any(p => p.UserId == userId);
+    var notifications = db.UserNotifications
+        .Where(un => un.UserId == userId)
+        .Include(un => un.Notification)
+        .Where(un => un.Notification != null)
+        .OrderByDescending(un => un.Notification.CreatedAt)
+        .Take(10)
+        .Select(un => un.Notification)
+        .ToList();
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - Feed</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    <style>
+        /* Admin Button Styling */
+        .admin-btn {
+            position: fixed;
+            bottom: 80px; /* Position above the floating action button */
+            left: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 50px;
+            font-size: 1.2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .admin-btn:hover {
+            transform: translateY(-3px) scale(1.1);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
+        .admin-btn i {
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <nav>
+            <button class="close-sidebar-button" id="closeSidebarButton">☰</button>
+            <ul class="nav-menu">
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Feed/Index'">
+                    <span>⌂</span> Home Feed
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/EditProfile'">
+                    <span>👤</span> Edit Profile
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/Bookmarks'">
+                    <span>🔖</span> Bookmarks
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/MyPosts'">
+                    <span>📝</span> My Posts
+                </li>
+
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Category'">
+                    <span>🏷️</span> Categories
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); logout()">
+                    <span>⏏️</span> Logout
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="logo">
+                <h1>BlogHub</h1>
+            </div>
+            <div class="search-container">
+                <form method="get" action="/Feed/Index">
+                    <input type="text" name="search" class="search-bar" placeholder="Search blogs, topics, authors..." value="@Context.Request.Query["search"]">
+                    <button class="search-btn" type="submit">🔍</button>
+                </form>
+            </div>
+            <div class="header-actions">
+                <button class="create-post-btn" onclick="window.location.href='/BlogPost/Create'">
+                    ✨ Create New Post
+                </button>
+                <div class="user-menu">
+                    <button class="notification-btn" onclick="toggleNotifications()">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <div class="user-profile" onclick="window.location.href='/User/Dashboard'">
+                        @if (hasProfileImage)
+                        {
+                            <img src="@profileImage" alt="@userName" class="user-avatar-img" />
+                        }
+                        else
+                        {
+                            <div class="user-avatar">@userInitials</div>
+                        }
+                        <span>@userName</span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+        <div class="tab-container">
+            <button class="nav-tab @(ViewBag.SelectedFilter == "all" || ViewBag.SelectedFilter == null ? "active" : "")" onclick="filterPosts('all')">All Posts</button>
+            <button class="nav-tab @(ViewBag.SelectedFilter == "trending" ? "active" : "")" onclick="filterPosts('trending')">Trending</button>
+            <button class="nav-tab @(ViewBag.SelectedFilter == "latest" ? "active" : "")" onclick="filterPosts('latest')">Latest</button>
+            <button class="nav-tab @(ViewBag.SelectedFilter == "popular" ? "active" : "")" onclick="filterPosts('popular')">Popular</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        @if (TempData["LikeMessage"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert" style="margin-bottom: 20px;">
+                @TempData["LikeMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        
+        @Html.AntiForgeryToken()
+        
+        <main class="feed">
+            @if (!Model.Any())
+            {
+                <div class="alert alert-info">No blog posts found. Try adjusting your search or create a new post!</div>
+            }
+            else
+            {
+                foreach (var post in Model)
+                {
+                    <article class="blog-post" data-post-id="@post.Id">
+                        <!-- Debug info: Post ID: @post.Id, Title: @post.Title -->
+                        <div class="post-header">
+                            @if (!string.IsNullOrEmpty(post.User?.ProfileImagePath))
+                            {
+                                <img src="@post.User.ProfileImagePath" alt="@(post.User?.Name ?? "Unknown")" class="author-avatar-img" />
+                            }
+                            else
+                            {
+                                <div class="author-avatar">@(post.User?.Name != null ? string.Join("", post.User.Name.Split(' ').Select(n => n[0])).ToUpper() : "U")</div>
+                            }
+                            <div class="author-info">
+                                <h3>@(post.User?.Name ?? "Unknown")</h3>
+                                <span class="post-time">@post.CreatedAt.ToString("MMM dd, yyyy")</span>
+                            </div>
+                        </div>
+                        <div class="post-content">
+                            <h2>@post.Title</h2>
+                            <div class="post-description">
+                                @{
+                                    var content = post.Content ?? "";
+                                    // Strip HTML tags for clean preview
+                                    var plainText = System.Text.RegularExpressions.Regex.Replace(content, "<.*?>", "");
+                                    var preview = plainText.Length > 150 ? plainText.Substring(0, 150) + "..." : plainText;
+                                }
+                                @preview
+                            </div>
+                            @if (post.Id > 0)
+                            {
+                                <a class="read-more-link" href="/BlogPost/Details/@post.Id" data-post-id="@post.Id">Read more</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Read more (unavailable)</span>
+                            }
+                            @if (!string.IsNullOrEmpty(post.ImagePath) || !string.IsNullOrEmpty(post.VideoPath))
+                            {
+                                <div class="post-image">
+                                    @if (!string.IsNullOrEmpty(post.VideoPath))
+                                    {
+                                        <div class="video-container">
+                                            <video controls class="post-video">
+                                                <source src="@post.VideoPath" type="video/@post.VideoPath.Split('.').Last()">
+                                                Your browser does not support the video tag.
+                                            </video>
+                                            <div class="video-badge">
+                                                <i class="fas fa-play"></i> Video
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (!string.IsNullOrEmpty(post.ImagePath))
+                                    {
+                                        <img src="@post.ImagePath" alt="@post.Title" />
+                                    }
+                                </div>
+                            }
+                            <div class="post-tags">
+                                @foreach (var tag in (post.Tags ?? "").Split(','))
+                                {
+                                    if (!string.IsNullOrWhiteSpace(tag))
+                                    {
+                                        <span class="tag">@tag.Trim()</span>
+                                    }
+                                }
+                            </div>
+                        </div>
+                        <div class="post-actions">
+                            <div class="action-buttons">
+                                @{
+                                    var userId = Context.Session.GetInt32("UserId");
+                                    var isLiked = post.Likes?.Any(l => l.UserId == userId) ?? false;
+                                }
+                                <button type="button" class="action-btn like-btn" data-post-id="@post.Id" onclick="likePost(@post.Id, this)">
+                                    @if (isLiked)
+                                    {
+                                        <span style="color: #e74c3c;">❤️</span>
+                                    }
+                                    else
+                                    {
+                                        <span>🤍</span>
+                                    }
+                                    <span class="like-count">@(post.Likes?.Count ?? 0)</span>
+                                </button>
+                                <button class="action-btn" onclick="window.location.href='/BlogPost/FeedDetails/@post.Id#comments'">
+                                    <span>💬</span> @(post.Comments?.Count ?? 0)
+                                </button>
+                                @{
+                                    var isBookmarked = ViewBag.BookmarkedIds != null && ((List<int>)ViewBag.BookmarkedIds).Contains(post.Id);
+                                }
+                                <button class="action-btn" onclick="sharePost(@post.Id, '@post.Title')" title="Share this post">
+                                    <span>📤</span> Share
+                                </button>
+                                <button class="action-btn bookmark-btn" 
+                                        data-post-id="@post.Id" 
+                                        onclick="toggleBookmark(@post.Id, this)" 
+                                        title="@(isBookmarked ? "Remove bookmark" : "Bookmark this post")">
+                                        @if (isBookmarked)
+                                        {
+                                            <span style="color: #f39c12;">🔖</span>
+                                        }
+                                        else
+                                        {
+                                            <span>🔖</span>
+                                        }
+                                    @(isBookmarked ? "Saved" : "Save")
+                                    </button>
+                            </div>
+                        </div>
+                    </article>
+                }
+            }
+        </main>
+    </div>
+
+    <!-- Floating Action Button -->
+    <div class="floating-action-btn" onclick="window.location.href='/BlogPost/Create'">
+        <i class="fas fa-plus"></i>
+    </div>
+
+    <!-- Admin Shortcut Button -->
+    <a href="/Admin/Login" class="admin-btn" title="Admin Panel">
+        <i class="fas fa-cog"></i>
+    </a>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>© 2025 - BlogHub | Made with ❤️ for creators</p>
+        </div>
+    </footer>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="close-notifications" onclick="toggleNotifications()">×</button>
+        </div>
+        <div class="notification-list">
+            @if (notifications.Any())
+            {
+                @foreach (var notification in notifications)
+                {
+                    <div class="notification-item">
+                        <div class="notification-icon">🔔</div>
+                        <div class="notification-content">
+                            <strong>@notification.Title</strong>
+                            <p>@Html.Raw(notification.Message)</p>
+                            <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="notification-item">
+                    <div class="notification-icon">🔔</div>
+                    <div class="notification-content">
+                        <p>No notifications yet</p>
+                        <span class="notification-time">Check back later</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="~/js/site.js?v=@DateTime.Now.Ticks"></script>
+    <script>
+        // AJAX Like functionality
+        function likePost(postId, button) {
+            // Add loading state
+            button.disabled = true;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<span>⏳</span>';
+
+            fetch(`/BlogPost/LikeAjax/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    '__RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the heart icon
+                    const heartSpan = button.querySelector('span:first-child');
+                    if (data.isLiked) {
+                        heartSpan.innerHTML = '❤️';
+                        heartSpan.style.color = '#e74c3c';
+                    } else {
+                        heartSpan.innerHTML = '🤍';
+                        heartSpan.style.color = '';
+                    }
+
+                    // Update the like count
+                    const countSpan = button.querySelector('.like-count');
+                    countSpan.textContent = data.likeCount + ' Likes';
+
+                    // Show success message
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Remove error notification - just log to console
+            })
+            .finally(() => {
+                // Re-enable button
+                button.disabled = false;
+            });
+        }
+
+
+
+        // Add anti-forgery token to all AJAX requests
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+        }
+
+        // Share post functionality
+        function sharePost(postId, postTitle) {
+            const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+            const text = `Check out this blog post: ${postTitle}`;
+            
+            // Check if Web Share API is available and we're in a secure context
+            if (navigator.share && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+                // Use native sharing if available
+                navigator.share({
+                    title: postTitle,
+                    text: text,
+                    url: url
+                }).then(() => {
+                    showNotification('Shared successfully!', 'success');
+                }).catch((error) => {
+                    console.log('Share cancelled or failed:', error);
+                    // Fallback to copying if share was cancelled
+                    copyToClipboard(text, url);
+                });
+            } else {
+                // Fallback to copying to clipboard
+                copyToClipboard(text, url);
+            }
+        }
+
+        // Helper function to copy to clipboard
+        function copyToClipboard(text, url) {
+                const shareText = `${text}\n\n${url}`;
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showNotification('Post link copied to clipboard!', 'success');
+                }).catch(() => {
+                    fallbackCopyToClipboard(shareText);
+                });
+            } else {
+                fallbackCopyToClipboard(shareText);
+            }
+        }
+
+                                    // Fallback for older browsers
+        function fallbackCopyToClipboard(text) {
+                const textArea = document.createElement('textarea');
+            textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+            textArea.focus();
+                textArea.select();
+            
+                try {
+                    document.execCommand('copy');
+                    showNotification('Post link copied to clipboard!', 'success');
+                } catch (err) {
+                    showNotification('Failed to copy link. Please copy manually.', 'error');
+                }
+            
+                document.body.removeChild(textArea);
+        }
+
+        // Debug function to test all Read more links
+        function testReadMoreLinks() {
+            const links = document.querySelectorAll('.read-more-link');
+            console.log(`Found ${links.length} Read more links`);
+            links.forEach((link, index) => {
+                const postId = link.href.split('/').pop();
+                console.log(`Link ${index + 1}: Post ID ${postId}, href: ${link.href}`);
+            });
+        }
+
+        // Call debug function when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            testReadMoreLinks();
+        });
+
+        // AJAX Bookmark functionality
+        function toggleBookmark(postId, button) {
+            // Add loading state
+            button.disabled = true;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<span>⏳</span>';
+
+            fetch(`/User/ToggleBookmarkAjax/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the bookmark icon
+                    const bookmarkSpan = button.querySelector('span:first-child');
+                    if (data.isBookmarked) {
+                        bookmarkSpan.innerHTML = '🔖';
+                        bookmarkSpan.style.color = '#f39c12';
+                        button.textContent = 'Saved';
+                    } else {
+                        bookmarkSpan.innerHTML = '🔖';
+                        bookmarkSpan.style.color = '';
+                        button.textContent = 'Save';
+                    }
+
+                    // Only show notification if there's a message
+                    if (data.message && data.message.trim() !== '') {
+                        showNotification(data.message, 'success');
+                    }
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error toggling bookmark. Please try again.', 'error');
+            })
+            .finally(() => {
+                // Re-enable button
+                button.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>

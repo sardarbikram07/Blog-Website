@@ -1,0 +1,331 @@
+﻿
+
+@{
+    Layout = null; // Don't use the shared layout
+    ViewData["Title"] = "Privacy Policy";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - Privacy Policy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    
+    <style>
+        /* Privacy Policy Specific Styles */
+        .privacy-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .privacy-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+            max-width: 800px;
+            width: 100%;
+            line-height: 1.7;
+        }
+
+        .privacy-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .privacy-title {
+            background: linear-gradient(135deg, #2e65cc 0%, #2f1f97 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .privacy-subtitle {
+            color: #666;
+            font-size: 1.2rem;
+            line-height: 1.6;
+        }
+
+        .privacy-content {
+            margin-top: 30px;
+        }
+
+        .privacy-lead {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+
+        .privacy-list {
+            list-style: none;
+            padding: 0;
+            margin: 25px 0;
+        }
+
+        .privacy-list li {
+            position: relative;
+            padding: 15px 0 15px 35px;
+            margin-bottom: 15px;
+            color: #555;
+            border-left: 3px solid rgba(52, 152, 219, 0.2);
+            background: rgba(52, 152, 219, 0.05);
+            border-radius: 0 8px 8px 0;
+            transition: all 0.3s ease;
+        }
+
+        .privacy-list li:hover {
+            border-left-color: #3498db;
+            background: rgba(52, 152, 219, 0.1);
+            transform: translateX(5px);
+        }
+
+        .privacy-list li::before {
+            content: '🔒';
+            position: absolute;
+            left: 10px;
+            top: 15px;
+            font-size: 1.2rem;
+        }
+
+        .privacy-contact {
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(46, 204, 113, 0.1) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(52, 152, 219, 0.2);
+        }
+
+        .privacy-contact p {
+            color: #666;
+            margin: 0;
+            text-align: center;
+        }
+
+        .privacy-contact a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .privacy-contact a:hover {
+            color: #2ecc71;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .back-link a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-link a:hover {
+            color: #2ecc71;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Floating elements for privacy page */
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .floating-item {
+            position: absolute;
+            opacity: 0;
+            animation: floatUp 15s infinite linear;
+        }
+
+        .floating-elements .privacy-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(52, 152, 219, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .floating-elements .security-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(46, 204, 113, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        @@keyframes floatUp {
+            0% {
+                transform: translateY(100vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+                transform: translateY(90vh) rotate(20deg) scale(1);
+            }
+            90% {
+                opacity: 0.7;
+                transform: translateY(-10vh) rotate(340deg) scale(1);
+            }
+            100% {
+                transform: translateY(-20vh) rotate(360deg) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .floating-elements .floating-item:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .floating-elements .floating-item:nth-child(2) { left: 15%; animation-delay: 2s; }
+        .floating-elements .floating-item:nth-child(3) { left: 25%; animation-delay: 4s; }
+        .floating-elements .floating-item:nth-child(4) { left: 35%; animation-delay: 6s; }
+        .floating-elements .floating-item:nth-child(5) { left: 45%; animation-delay: 8s; }
+        .floating-elements .floating-item:nth-child(6) { left: 55%; animation-delay: 10s; }
+        .floating-elements .floating-item:nth-child(7) { left: 65%; animation-delay: 1s; }
+        .floating-elements .floating-item:nth-child(8) { left: 75%; animation-delay: 3s; }
+        .floating-elements .floating-item:nth-child(9) { left: 85%; animation-delay: 5s; }
+        .floating-elements .floating-item:nth-child(10) { left: 95%; animation-delay: 7s; }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .privacy-card {
+                padding: 30px 20px;
+            }
+
+            .privacy-title {
+                font-size: 2rem;
+            }
+
+            .privacy-list li {
+                padding: 12px 0 12px 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Elements -->
+    <div class="floating-elements">
+        <div class="floating-item">
+            <div class="privacy-icon">🔒</div>
+        </div>
+        <div class="floating-item">
+            <div class="security-icon">🛡️</div>
+        </div>
+        <div class="floating-item">
+            <div class="privacy-icon">🔐</div>
+        </div>
+        <div class="floating-item">
+            <div class="security-icon">🔑</div>
+        </div>
+        <div class="floating-item">
+            <div class="privacy-icon">🔏</div>
+        </div>
+        <div class="floating-item">
+            <div class="security-icon">🔒</div>
+        </div>
+        <div class="floating-item">
+            <div class="privacy-icon">🛡️</div>
+        </div>
+        <div class="floating-item">
+            <div class="security-icon">🔐</div>
+        </div>
+        <div class="floating-item">
+            <div class="privacy-icon">🔑</div>
+        </div>
+        <div class="floating-item">
+            <div class="security-icon">🔏</div>
+        </div>
+    </div>
+
+    <!-- Privacy Policy Container -->
+    <div class="privacy-container">
+        <div class="privacy-card">
+            <div class="privacy-header">
+                <h1 class="privacy-title">🔒 Privacy Policy</h1>
+                <p class="privacy-subtitle">Your privacy is our top priority</p>
+            </div>
+
+            <div class="privacy-content">
+                <p class="privacy-lead">
+                    At BlogHub, your privacy is a top priority. This policy outlines how we collect, use, and protect your data when using our services.
+                </p>
+
+                <ul class="privacy-list">
+                    <li>We only collect essential personal data (e.g., email, username) needed to create your account and manage blog interactions.</li>
+                    <li>Your personal information will never be sold or shared without your explicit consent.</li>
+                    <li>Passwords are securely hashed and never stored in plain text.</li>
+                    <li>All communications between your browser and our servers are encrypted via HTTPS.</li>
+                    <li>You can delete your account anytime from your profile settings or by contacting us.</li>
+                    <li>We use cookies solely to improve your user experience. You can manage cookies via your browser settings.</li>
+                    <li>We do not track your behavior across other websites or external platforms.</li>
+                </ul>
+
+                <div class="privacy-contact">
+                    <p>
+                        If you have any privacy-related concerns or questions, feel free to 
+                        <a href="/Contact">contact us</a> or email us at
+                        <a href="mailto:support@bloghub.com">support@bloghub.com</a>.
+                    </p>
+                </div>
+
+                <div class="back-link">
+                    <a href="/Home/Landing">
+                        <i class="fas fa-arrow-left"></i> Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="~/js/site.js"></script>
+</body>
+</html>

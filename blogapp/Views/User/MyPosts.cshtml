@@ -1,0 +1,727 @@
+﻿@model List<blogapp.Models.BlogPost>
+@using Microsoft.EntityFrameworkCore
+@inject blogapp.Data.BlogDBContext db
+
+@{
+    Layout = null; // Don't use the shared layout
+    ViewData["Title"] = "My Blog Posts";
+    var bookmarkedIds = ViewBag.BookmarkedIds as List<int> ?? new List<int>();
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var userInitials = userName.Length > 1 ? string.Join("", userName.Split(' ').Select(n => n[0])).ToUpper() : userName.ToUpper();
+    var userId = Context.Session.GetInt32("UserId");
+    var isCreator = db.BlogPosts.Any(p => p.UserId == userId);
+    var notifications = db.UserNotifications
+        .Where(un => un.UserId == userId)
+        .Include(un => un.Notification)
+        .Where(un => un.Notification != null)
+        .OrderByDescending(un => un.Notification.CreatedAt)
+        .Take(10)
+        .Select(un => un.Notification)
+        .ToList();
+    
+    // Get profile image from session first, then from database as fallback
+    var profileImage = Context.Session.GetString("ProfileImagePath");
+    if (string.IsNullOrEmpty(profileImage) && userId.HasValue)
+    {
+        var user = db.Users.FirstOrDefault(u => u.Id == userId.Value);
+        profileImage = user?.ProfileImagePath ?? "";
+    }
+    
+    var hasProfileImage = !string.IsNullOrEmpty(profileImage);
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - My Posts</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    
+    <style>
+        /* My Posts Specific Styles */
+        .myposts-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .myposts-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .myposts-title {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .myposts-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .myposts-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .post-card {
+            background: white;
+            border-radius: 18px;
+            padding: 32px 32px 24px 32px;
+            margin-bottom: 32px;
+            box-shadow: 0 8px 32px rgba(80, 80, 180, 0.10);
+            border-left: 6px solid #7b6cf6;
+            border-right: 0;
+            border-top: 0;
+            border-bottom: 0;
+            transition: box-shadow 0.2s, transform 0.2s;
+            position: relative;
+            overflow: visible;
+        }
+        .post-card:hover {
+            box-shadow: 0 16px 48px rgba(80, 80, 180, 0.18);
+            transform: translateY(-4px) scale(1.01);
+        }
+        .post-content {
+            display: flex;
+            gap: 28px;
+            align-items: flex-start;
+        }
+        .post-thumbnail {
+            width: 96px;
+            height: 96px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: #f3f4fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #7b6cf6;
+            font-weight: 600;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(80, 80, 180, 0.07);
+        }
+        .post-details {
+            flex: 1;
+            min-width: 0;
+        }
+        .post-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .post-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #23223a;
+            margin: 0;
+            line-height: 1.2;
+        }
+        .status-badge {
+            padding: 3px 16px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            background: #eafbe7;
+            color: #28a745;
+            border: 1.5px solid #28a745;
+            box-shadow: 0 1px 4px rgba(40,167,69,0.07);
+        }
+        .post-excerpt {
+            color: #888;
+            line-height: 1.5;
+            margin-bottom: 10px;
+            font-size: 0.97rem;
+            font-weight: 400;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-height: 2.8em;
+        }
+        .post-meta {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            color: #a0a0b2;
+            font-size: 0.93rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+            letter-spacing: 0.01em;
+        }
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0 8px;
+            position: relative;
+        }
+        .meta-item i {
+            font-size: 1em;
+            color: #b3b3c6;
+            margin-right: 3px;
+        }
+        .meta-dot {
+            width: 4px;
+            height: 4px;
+            background: #d1d1e7;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 4px;
+            vertical-align: middle;
+        }
+        .post-meta .meta-item:not(:last-child)::after {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background: #d1d1e7;
+            border-radius: 50%;
+            margin-left: 10px;
+            margin-right: 2px;
+            vertical-align: middle;
+        }
+        .divider {
+            border: none;
+            border-top: 1.5px solid #f0f0f0;
+            margin: 18px 0 12px 0;
+        }
+        .post-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .action-btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.98rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.18s, box-shadow 0.18s, transform 0.18s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .action-btn.success {
+            background: #28a745;
+            color: white;
+        }
+        .action-btn.primary {
+            background: #f3f4fa;
+            color: #7b6cf6;
+            border: 1.5px solid #e0e0f7;
+        }
+        .action-btn.primary.saved {
+            background: #e0e0f7;
+            color: #7b6cf6;
+            border: 1.5px solid #d1d1e7;
+        }
+        .action-btn.danger {
+            background: #e74c3c;
+            color: white;
+        }
+        .action-btn:hover {
+            box-shadow: 0 2px 8px rgba(80, 80, 180, 0.13);
+            transform: translateY(-2px) scale(1.04);
+        }
+        @@media (max-width: 700px) {
+            .post-content { flex-direction: column; align-items: stretch; gap: 16px; }
+            .post-thumbnail { margin: 0 auto; }
+            .post-card { padding: 18px 8px 16px 8px; }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .empty-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .empty-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .create-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .create-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        .back-btn {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 10px 20px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 25px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .back-btn:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-published {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+        }
+
+        .status-draft {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+        }
+
+        @@keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @@media (max-width: 768px) {
+            .post-content {
+                flex-direction: column;
+            }
+            
+            .post-image {
+                width: 100%;
+                height: 200px;
+            }
+            
+            .myposts-title {
+                font-size: 2rem;
+            }
+            
+            .myposts-stats {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <nav>
+            <button class="close-sidebar-button" id="closeSidebarButton">☰</button>
+            <ul class="nav-menu">
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Feed/Index'">
+                    <span>⌂</span> Home Feed
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/EditProfile'">
+                    <span>👤</span> Edit Profile
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/Bookmarks'">
+                    <span>🔖</span> Bookmarks
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/MyPosts'">
+                    <span>📝</span> My Posts
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Category'">
+                    <span>🏷️</span> Categories
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); logout()">
+                    <span>⏏️</span> Logout
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="logo">
+                <h1>BlogHub</h1>
+            </div>
+            <div class="search-container">
+                <form method="get" action="/Feed/Index">
+                    <input type="text" name="search" class="search-bar" placeholder="Search blogs, topics, authors..." value="@Context.Request.Query["search"]">
+                    <button class="search-btn" type="submit">🔍</button>
+                </form>
+            </div>
+            <div class="header-actions">
+                <button class="create-post-btn" onclick="window.location.href='/BlogPost/Create'">
+                    ✨ Create New Post
+                </button>
+                <div class="user-menu">
+                    <button class="notification-btn" onclick="toggleNotifications()">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <div class="user-profile" onclick="window.location.href='/User/Dashboard'">
+                        @if (hasProfileImage)
+                        {
+                            <img src="@profileImage" alt="@userName" class="user-avatar-img" />
+                        }
+                        else
+                        {
+                            <div class="user-avatar">@userInitials</div>
+                        }
+                        <span>@userName</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        @Html.AntiForgeryToken()
+        
+        <div class="myposts-container">
+            <!-- Header Section -->
+            <div class="myposts-header">
+                <h1 class="myposts-title">
+                    <i class="fas fa-pen-alt me-3"></i>My Posts
+                </h1>
+                <p class="myposts-subtitle">Manage and track your published articles</p>
+                <div class="myposts-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-file-alt"></i>
+                        <span>@Model.Count posts</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-heart"></i>
+                        <span>@Model.Sum(p => p.Likes?.Count ?? 0) likes</span>
+                    </div>
+                </div>
+            </div>
+
+    @if (!Model.Any())
+    {
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-pen-alt"></i>
+                    </div>
+                    <h3 class="empty-title">No Posts Yet</h3>
+                    <p class="empty-subtitle">Start your blogging journey by creating your first post!</p>
+                    <a href="/BlogPost/Create" class="create-btn">
+                        <i class="fas fa-plus"></i> Write Your First Post
+                    </a>
+        </div>
+    }
+    else
+    {
+        foreach (var post in Model)
+        {
+            var isBookmarked = bookmarkedIds.Contains(post.Id);
+                    var content = post.Content ?? "";
+                    var excerpt = content.Length > 150 ? content.Substring(0, 150) + "..." : content;
+
+                    <div class="post-card">
+                        <div class="post-content">
+                            @if (!string.IsNullOrEmpty(post.ImagePath))
+                            {
+                                <img src="@post.ImagePath" alt="@post.Title" class="post-thumbnail" />
+                            }
+                            else
+                            {
+                                <div class="post-thumbnail">@post.Title</div>
+                            }
+                            
+                            <div class="post-details">
+                                <div class="post-header">
+                                    <h3 class="post-title">@post.Title</h3>
+                                    <span class="status-badge">PUBLISHED</span>
+                                </div>
+                                
+                                @if (!string.IsNullOrEmpty(excerpt))
+                                {
+                                    <p class="post-excerpt">@Html.Raw(excerpt)</p>
+                                }
+                                <div class="post-meta">
+                                    <div class="meta-item">
+                                        <i class="fas fa-calendar"></i>
+                                        <span>@post.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <i class="fas fa-comments"></i>
+                                        <span>@(post.Comments?.Count ?? 0) comments</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <i class="fas fa-heart"></i>
+                                        <span>@(post.Likes?.Count ?? 0) likes</span>
+                                    </div>
+                                </div>
+                                <hr class="divider" />
+                                <div class="post-actions">
+                                    <a href="/User/Edit/@post.Id" class="action-btn success" onclick="event.stopPropagation();">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <button class="action-btn primary@(isBookmarked ? " saved" : "")" onclick="event.stopPropagation(); toggleBookmark(@post.Id, this)">
+                                        <i class="fas fa-bookmark"></i> @(isBookmarked ? "Saved" : "Save")
+                                    </button>
+                                    <button class="action-btn danger" onclick="event.stopPropagation(); deletePost(@post.Id, this)">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+        }
+    }
+
+            <div class="text-center">
+                <a href="/Feed/Index" class="back-btn">
+                    <i class="fas fa-home"></i> Back to Home
+    </a>
+</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>© 2025 - BlogHub | Made with ❤️ for creators</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="~/js/site.js"></script>
+    <script>
+        function stopClick(event) {
+            event.stopPropagation();
+            return true;
+        }
+
+        // AJAX Bookmark functionality
+        function toggleBookmark(postId, button) {
+            button.disabled = true;
+            const originalContent = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            fetch(`/User/ToggleBookmarkAjax/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.isBookmarked) {
+                        button.className = 'action-btn secondary';
+                        button.innerHTML = '<i class="fas fa-bookmark"></i> Saved';
+                    } else {
+                        button.className = 'action-btn secondary';
+                        button.innerHTML = '<i class="fas fa-bookmark"></i> Save';
+                    }
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error toggling bookmark. Please try again.', 'error');
+            })
+            .finally(() => {
+                button.disabled = false;
+            });
+        }
+
+        function deletePost(postId, button) {
+            if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+                button.disabled = true;
+                const originalContent = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+
+                fetch(`/User/DeleteAjax/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove the card from the UI
+                        const card = button.closest('.post-card');
+                        card.style.opacity = '0';
+                        card.style.transform = 'translateX(100px)';
+                        setTimeout(() => {
+                            card.remove();
+                            // Update the count
+                            const countElement = document.querySelector('.stat-item span');
+                            const currentCount = parseInt(countElement.textContent.match(/\d+/)[0]);
+                            countElement.textContent = `${currentCount - 1} posts`;
+                        }, 300);
+                        showNotification('Post deleted successfully!', 'success');
+                    } else {
+                        showNotification(data.message || 'Error deleting post', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error deleting post. Please try again.', 'error');
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.innerHTML = originalContent;
+                });
+            }
+        }
+
+        // Show notification function
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.padding = '15px 20px';
+            notification.style.borderRadius = '5px';
+            notification.style.color = 'white';
+            notification.style.zIndex = '10000';
+            notification.style.transition = 'all 0.3s ease';
+            notification.style.maxWidth = '300px';
+            notification.style.wordWrap = 'break-word';
+            
+            switch(type) {
+                case 'success':
+                    notification.style.backgroundColor = '#4caf50';
+                    break;
+                case 'error':
+                    notification.style.backgroundColor = '#f44336';
+                    break;
+                case 'warning':
+                    notification.style.backgroundColor = '#ff9800';
+                    break;
+                default:
+                    notification.style.backgroundColor = '#2196f3';
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+    </script>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="close-notifications" onclick="toggleNotifications()">×</button>
+        </div>
+        <div class="notification-list">
+            @if (notifications.Any())
+            {
+                @foreach (var notification in notifications)
+                {
+                    <div class="notification-item">
+                        <div class="notification-icon">🔔</div>
+                        <div class="notification-content">
+                            <strong>@notification.Title</strong>
+                            <p>@Html.Raw(notification.Message)</p>
+                            <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="notification-item">
+                    <div class="notification-icon">🔔</div>
+                    <div class="notification-content">
+                        <p>No notifications yet</p>
+                        <span class="notification-time">Check back later</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</body>
+</html>

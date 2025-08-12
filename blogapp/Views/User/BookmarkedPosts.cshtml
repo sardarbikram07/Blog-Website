@@ -1,0 +1,108 @@
+﻿@model List<blogapp.Models.BlogPost>
+@inject blogapp.Data.BlogDBContext db
+
+@{
+    ViewData["Title"] = "Saved Bookmarks";
+    int userId = ViewBag.UserId ?? 0;
+
+}
+
+<!-- FontAwesome for icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+
+<style>
+    .bookmark-card {
+        cursor: pointer;
+        transition: transform 0.2s ease-in-out;
+        border-radius: 10px;
+    }
+
+        .bookmark-card:hover {
+            transform: scale(1.01);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+        }
+
+    .bookmark-image {
+        height: 100px;
+        width: 100%;
+        object-fit: cover;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+    }
+
+    .card-body {
+        padding: 12px;
+    }
+
+    .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2e2ecc;
+    }
+
+    .card-text {
+        font-size: 0.9rem;
+        color: #555;
+    }
+
+    .card-footer {
+        font-size: 0.8rem;
+        color: #777;
+    }
+
+    .back-btn {
+        margin-top: 20px;
+    }
+
+</style>
+
+<div class="container mt-5">
+    <h2 class="mb-4"><i class="fas fa-bookmark me-2"></i>@ViewData["Title"]</h2>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            <p class="mb-0 text-muted">You haven't bookmarked any blog posts yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var post in Model)
+            {
+                var isLiked = post.Likes?.Any(l => l.UserId == userId) ?? false;
+
+                <div class="col-md-4 mb-4">
+                    <div class="card bookmark-card" onclick="location.href='/BlogPost/Details/@post.Id'">
+                        @if (!string.IsNullOrEmpty(post.ImagePath))
+                        {
+                            <img src="@post.ImagePath" alt="@post.Title" class="bookmark-image" />
+                        }
+                        else
+                        {
+                            <img src="/images/placeholder.png" alt="No image" class="bookmark-image" />
+                        }
+
+                        <div class="card-body">
+                            <div class="card-title">@post.Title</div>
+                            @* <div class="card-text">
+                                @((post.Content?.Length > 80) ? post.Content.Substring(0, 80) + "..." : post.Content)
+                            </div> *@
+                        </div>
+                        <form method="post" asp-controller="BlogPost" asp-action="Like" asp-route-id="@post.Id" class="mb-0">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-heart @(isLiked ? "text-danger" : "")"></i>
+                                <span>@(post.Likes?.Count ?? 0)</span>
+                            </button>
+                        </form>
+                            
+                            <small>Posted on @post.CreatedAt.ToString("dd MMM yyyy")</small>
+                    </div>
+                </div>
+
+            }
+        </div>
+    }
+
+    <a href="/Feed/Index" class="btn btn-secondary back-btn"><i class="fas fa-arrow-left me-1"></i> Back to Dashboard</a>
+</div>

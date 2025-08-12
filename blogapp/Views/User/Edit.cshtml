@@ -1,0 +1,472 @@
+﻿
+@model blogapp.Models.BlogPost
+@using Microsoft.EntityFrameworkCore
+@inject blogapp.Data.BlogDBContext db
+
+@{
+    Layout = null; // Don't use the shared layout
+    ViewData["Title"] = "Edit Blog";
+    var categories = new List<string> { "Sports", "Movies", "Technology", "Health", "Finance", "Education" };
+    var profileImage = Context.Session.GetString("ProfileImagePath") ?? "/images/profiles/user-icon.png";
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var userInitials = userName.Length > 1 ? string.Join("", userName.Split(' ').Select(n => n[0])).ToUpper() : userName.ToUpper();
+    var hasProfileImage = !string.IsNullOrEmpty(profileImage) && profileImage != "/images/profiles/user-icon.png";
+    var userId = Context.Session.GetInt32("UserId");
+    var isCreator = db.BlogPosts.Any(p => p.UserId == userId);
+    var notifications = db.UserNotifications
+        .Where(un => un.UserId == userId)
+        .Include(un => un.Notification)
+        .Where(un => un.Notification != null)
+        .OrderByDescending(un => un.Notification.CreatedAt)
+        .Take(10)
+        .Select(un => un.Notification)
+        .ToList();
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogHub - Edit Blog</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    
+    <style>
+        /* Edit Blog Form Styles */
+        .edit-container {
+            max-width: 800px;
+            margin: 0.5rem auto 2rem auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .edit-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .edit-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .edit-subtitle {
+            opacity: 0.9;
+            margin-top: 0.5rem;
+        }
+
+        .edit-form {
+            padding: 3rem;
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .form-control, .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        .media-preview {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 2px dashed #e9ecef;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .media-preview img, .media-preview video {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+        }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .edit-container {
+                margin: 1rem;
+            }
+        }
+
+        /* Sidebar Toggle Styles */
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: white;
+            cursor: pointer;
+            padding: 0.5rem;
+            margin-right: 1rem;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+
+        .overlay.show {
+            display: block;
+        }
+
+        /* Mobile responsive sidebar */
+        @@media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                transition: margin-left 0.3s ease;
+            }
+            
+            .main-content.sidebar-open {
+                margin-left: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <nav>
+            <button class="close-sidebar-button" id="closeSidebarButton">☰</button>
+            <ul class="nav-menu">
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Feed/Index'">
+                    <span>⌂</span> Home Feed
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/EditProfile'">
+                    <span>👤</span> Edit Profile
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/Bookmarks'">
+                    <span>🔖</span> Bookmarks
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/User/MyPosts'">
+                    <span>📝</span> My Posts
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); window.location.href='/Category'">
+                    <span>🏷️</span> Categories
+                </li>
+                <li class="nav-item" onclick="closeSidebar(); logout()">
+                    <span>⏏️</span> Logout
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="logo">
+                <h1>BlogHub</h1>
+            </div>
+            <div class="search-container">
+                <form method="get" action="/Feed/Index">
+                    <input type="text" name="search" class="search-bar" placeholder="Search blogs, topics, authors..." value="@Context.Request.Query["search"]">
+                    <button class="search-btn" type="submit">🔍</button>
+                </form>
+            </div>
+            <div class="header-actions">
+                <button class="create-post-btn" onclick="window.location.href='/BlogPost/Create'">
+                    ✨ Create New Post
+                </button>
+                <div class="user-menu">
+                    <button class="notification-btn" onclick="toggleNotifications()">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <div class="user-profile" onclick="window.location.href='/User/Dashboard'">
+                        @if (hasProfileImage)
+                        {
+                            <img src="@profileImage" alt="@userName" class="user-avatar-img" />
+                        }
+                        else
+                        {
+                            <div class="user-avatar">@userInitials</div>
+                        }
+                        <span>@userName</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <div class="edit-container">
+            <div class="edit-header">
+                <h1 class="edit-title">Edit Blog</h1>
+                <p class="edit-subtitle">Update your blog post content and settings</p>
+            </div>
+            
+            <div class="edit-form">
+                <form asp-action="Edit" asp-controller="User" method="post" enctype="multipart/form-data">
+                    <input type="hidden" asp-for="Id" />
+
+                    <!-- Title -->
+                    <div class="form-group">
+                        <label asp-for="Title" class="form-label">Title</label>
+                        <input asp-for="Title" class="form-control" placeholder="Enter your blog title" />
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="form-group">
+                        <label asp-for="Content" class="form-label">Content</label>
+                        <textarea asp-for="Content" id="contentEditor" class="form-control" rows="10" placeholder="Write your blog content here..."></textarea>
+                        <span asp-validation-for="Content" class="text-danger"></span>
+                    </div>
+
+                    <!-- Tags -->
+                    <div class="form-group">
+                        <label asp-for="Tags" class="form-label">Tags</label>
+                        <input asp-for="Tags" class="form-control" placeholder="Enter tags separated by commas" />
+                    </div>
+
+                    <!-- Category -->
+                    <div class="form-group">
+                        <label asp-for="Category" class="form-label">Category</label>
+                        <select asp-for="Category" class="form-select">
+                            <option value="">-- Select Category --</option>
+                            @foreach (var category in categories)
+                            {
+                                <option value="@category" selected="@(Model.Category == category)">
+                                    @category
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Existing Image -->
+                    @if (!string.IsNullOrEmpty(Model.ImagePath))
+                    {
+                        <div class="form-group">
+                            <label class="form-label">Current Image</label>
+                            <div class="media-preview">
+                                <img src="@Model.ImagePath" alt="Current Image" />
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Upload New Image -->
+                    <div class="form-group">
+                        <label class="form-label">Change Image (optional)</label>
+                        <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                    </div>
+
+                    <!-- Existing Video -->
+                    @if (!string.IsNullOrEmpty(Model.VideoPath))
+                    {
+                        <div class="form-group">
+                            <label class="form-label">Current Video</label>
+                            <div class="media-preview">
+                                <video controls>
+                                    <source src="@Model.VideoPath" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Upload New Video -->
+                    <div class="form-group">
+                        <label class="form-label">Change Video (optional)</label>
+                        <input type="file" name="videoFile" class="form-control" accept="video/*" />
+                    </div>
+
+                    <div class="form-group" style="margin-top: 2rem;">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                        <a href="/User/MyPosts" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <a href="/User/MyPosts" class="btn btn-primary">
+                            <i class="fas fa-arrow-left"></i> Back to My Posts
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="~/js/site.js"></script>
+    <script src="https://cdn.tiny.cloud/1/6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+        // Sidebar functionality
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const overlay = document.getElementById('overlay');
+            
+            sidebar.classList.toggle('show');
+            mainContent.classList.toggle('sidebar-open');
+            overlay.classList.toggle('show');
+        }
+
+        // Add event listener to menu toggle button
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuToggle = document.getElementById('menuToggle');
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    toggleSidebar();
+                });
+            }
+
+            // Close sidebar when clicking overlay
+            const overlay = document.getElementById('overlay');
+            if (overlay) {
+                overlay.addEventListener('click', function() {
+                    toggleSidebar();
+                });
+            }
+
+            // Close sidebar when clicking outside
+            document.addEventListener('click', function(event) {
+                const sidebar = document.getElementById('sidebar');
+                const toggleBtn = event.target.closest('.menu-toggle');
+                
+                if (!sidebar.contains(event.target) && !toggleBtn && sidebar.classList.contains('show')) {
+                    toggleSidebar();
+                }
+            });
+        });
+
+        // TinyMCE initialization
+        tinymce.init({
+            selector: '#contentEditor',
+            plugins: 'link lists image code',
+            toolbar: 'undo redo | bold italic | bullist numlist | link image | code',
+            menubar: false,
+            height: 300,
+            skin: 'oxide',
+            content_css: 'default',
+            apiKey: '6jpfl0ghtxe0fru5e02fxn5o2ydbe65tco16kxvj1tscqxn9'
+        });
+    </script>
+    <!-- Notification Panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="close-notifications" onclick="toggleNotifications()">×</button>
+        </div>
+        <div class="notification-list">
+            @if (notifications.Any())
+            {
+                @foreach (var notification in notifications)
+                {
+                    <div class="notification-item">
+                        <div class="notification-icon">🔔</div>
+                        <div class="notification-content">
+                            <strong>@notification.Title</strong>
+                            <p>@Html.Raw(notification.Message)</p>
+                            <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="notification-item">
+                    <div class="notification-icon">🔔</div>
+                    <div class="notification-content">
+                        <p>No notifications yet</p>
+                        <span class="notification-time">Check back later</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</body>
+</html>
+

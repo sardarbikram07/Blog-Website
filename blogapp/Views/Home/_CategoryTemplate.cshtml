@@ -1,0 +1,233 @@
+﻿@model List<blogapp.Models.BlogPost>
+
+@{
+    var category = ViewBag.Category as string ?? "All Posts";
+    var categoryIcon = ViewBag.CategoryIcon as string ?? "📝";
+    var userId = Context.Session.GetInt32("UserId");
+    var bookmarkedIds = ViewBag.BookmarkedIds as List<int> ?? new List<int>();
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="@categoryIcon"></i> @category
+            </h2>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            No posts found in this category. Be the first to create one!
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var post in Model)
+            {
+                var isBookmarked = bookmarkedIds.Contains(post.Id);
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        @if (!string.IsNullOrEmpty(post.ImagePath))
+                        {
+                            <img src="@post.ImagePath" class="card-img-top" alt="@post.Title" style="height: 200px; object-fit: cover;">
+                        }
+                        else
+                        {
+                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                                <i class="fas fa-image fa-3x text-muted"></i>
+                            </div>
+                        }
+
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="/BlogPost/Details/@post.Id" class="text-decoration-none">@post.Title</a>
+                            </h5>
+                            <p class="card-text text-muted small">
+                                By <strong>@post.User?.Name</strong> on @post.CreatedAt.ToString("MMM dd, yyyy")
+                            </p>
+                            <p class="card-text">
+                                @((post.Content?.Length > 100) ? post.Content.Substring(0, 100) + "..." : post.Content)
+                            </p>
+                        </div>
+
+                        <div class="card-footer bg-white">
+                            <a href="/BlogPost/FeedDetails/@post.Id" class="btn btn-sm btn-outline-primary">
+                                Read More
+                            </a>
+                            <span class="float-end">
+                                <button class="btn btn-sm btn-outline-info" onclick="sharePost(@post.Id, '@post.Title')" title="Share this post">
+                                    <i class="fas fa-share-alt"></i> Share
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning bookmark-btn" 
+                                        data-post-id="@post.Id" 
+                                        onclick="toggleBookmark(@post.Id, this)" 
+                                        title="@(isBookmarked ? "Remove bookmark" : "Bookmark this post")">
+                                    <i class="fas fa-bookmark @(isBookmarked ? "text-warning" : "")"></i> @(isBookmarked ? "Saved" : "Save")
+                                    </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<script>
+    // Share post functionality
+    function sharePost(postId, postTitle) {
+        const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+        const text = `Check out this blog post: ${postTitle}`;
+        
+        // Check if Web Share API is available and we're in a secure context
+        if (navigator.share && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+            // Use native sharing if available
+            navigator.share({
+                title: postTitle,
+                text: text,
+                url: url
+            }).then(() => {
+                showNotification('Shared successfully!', 'success');
+            }).catch((error) => {
+                console.log('Share cancelled or failed:', error);
+                // Fallback to copying if share was cancelled
+                copyToClipboard(text, url);
+            });
+        } else {
+            // Fallback to copying to clipboard
+            copyToClipboard(text, url);
+        }
+    }
+
+    // Helper function to copy to clipboard
+    function copyToClipboard(text, url) {
+            const shareText = `${text}\n\n${url}`;
+        
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(shareText).then(() => {
+                showNotification('Post link copied to clipboard!', 'success');
+            }).catch(() => {
+                fallbackCopyToClipboard(shareText);
+            });
+        } else {
+            fallbackCopyToClipboard(shareText);
+        }
+    }
+
+                // Fallback for older browsers
+    function fallbackCopyToClipboard(text) {
+                const textArea = document.createElement('textarea');
+        textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+        textArea.focus();
+                textArea.select();
+        
+                try {
+                    document.execCommand('copy');
+                    showNotification('Post link copied to clipboard!', 'success');
+                } catch (err) {
+                    showNotification('Failed to copy link. Please copy manually.', 'error');
+                }
+        
+                document.body.removeChild(textArea);
+    }
+
+    // Show notification function (if not already defined)
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        // Add styles
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.color = 'white';
+        notification.style.zIndex = '10000';
+        notification.style.transition = 'all 0.3s ease';
+        notification.style.maxWidth = '300px';
+        notification.style.wordWrap = 'break-word';
+        
+        // Set background color based on type
+        switch(type) {
+            case 'success':
+                notification.style.backgroundColor = '#4caf50';
+                break;
+            case 'error':
+                notification.style.backgroundColor = '#f44336';
+                break;
+            case 'warning':
+                notification.style.backgroundColor = '#ff9800';
+                break;
+            default:
+                notification.style.backgroundColor = '#2196f3';
+        }
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+            }
+            }, 300);
+        }, 3000);
+    }
+
+    // AJAX Bookmark functionality
+    function toggleBookmark(postId, button) {
+        // Add loading state
+        button.disabled = true;
+        const originalContent = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        fetch(`/User/ToggleBookmarkAjax/${postId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the bookmark icon
+                const bookmarkIcon = button.querySelector('i');
+                if (data.isBookmarked) {
+                    bookmarkIcon.className = 'fas fa-bookmark text-warning';
+                    button.textContent = 'Saved';
+                } else {
+                    bookmarkIcon.className = 'fas fa-bookmark';
+                    button.textContent = 'Save';
+                }
+
+                // Only show notification if there's a message
+                if (data.message && data.message.trim() !== '') {
+                    showNotification(data.message, 'success');
+                }
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error toggling bookmark. Please try again.', 'error');
+        })
+        .finally(() => {
+            // Re-enable button
+            button.disabled = false;
+        });
+    }
+</script>

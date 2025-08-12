@@ -1,0 +1,157 @@
+﻿
+
+@model (List<blogapp.Models.User> Users, List<blogapp.Models.BlogPost> Blogs)
+@{
+    ViewData["Title"] = "Admin Dashboard";
+    var profileImage = Context.Session.GetString("ProfileImagePath") ?? "/images/default.png";
+}
+
+<div class="container py-4">
+    @if (TempData["Message"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show alert-fade-in" role="alert">
+            <i class="fas fa-check-circle"></i>
+            @TempData["Message"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    
+    <h2 class="text-center mb-4">📊 Admin Dashboard</h2>
+
+    <!-- 🌐 Admin Quick Actions -->
+    <div class="admin-actions mb-5 p-3 d-flex flex-wrap gap-2">
+        <a href="/Admin/AccessRequests" class="btn btn-info">
+            📝 Manage Creator Requests
+            @{
+                var pendingCount = Model.Users.Count(u => u.BlogAccessStatus == blogapp.Models.AccessStatus.Pending);
+                if (pendingCount > 0)
+                {
+                    <span class="badge bg-danger ms-2">@pendingCount</span>
+                }
+            }
+        </a>
+        <a href="/Admin/UsersList" class="btn btn-success">👥 View All Users</a>
+        <a href="/Admin/BlogsList" class="btn btn-warning">📝 View All Blogs</a>
+        <a href="/AdminNotification/Index" class="btn btn-dark">🔔 View Notifications</a>
+        <a href="/Admin/SendNotification" class="btn btn-primary">📢 Send Notification</a>
+        <a href="/Admin/ChangePassword" class="btn btn-warning">🔑 Change Password</a>
+        <form method="post" asp-action="UpdateExistingUsersToPending" class="d-inline">
+            <button type="submit" class="btn btn-info" onclick="return confirm('Update all users with None status to Pending?')">
+                🔄 Update Existing Users
+            </button>
+        </form>
+    </div>
+
+    <!-- ✅ Users Preview -->
+    <h4 class="mb-3">👥 Users Overview</h4>
+    <table class="table table-bordered table-striped table-sm">
+        <thead class="table-dark">
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Registered On</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Model.Users.Take(2))
+            {
+                <tr>
+                    <td>@user.Name</td>
+                    <td>@user.Email</td>
+                    <td>
+                        @switch (user.BlogAccessStatus)
+                        {
+                            case blogapp.Models.AccessStatus.Approved:
+                                <span class="badge bg-success">Approved</span>
+                                break;
+                            case blogapp.Models.AccessStatus.Pending:
+                                <span class="badge bg-warning text-dark">Pending</span>
+                                break;
+                            case blogapp.Models.AccessStatus.Rejected:
+                                <span class="badge bg-danger">Rejected</span>
+                                break;
+                            default:
+                                <span class="badge bg-secondary">None</span>
+                                break;
+                        }
+                    </td>
+                    <td>@user.DateTime.ToString("dd MMM yyyy")</td>
+                    <td>
+                        <a href="/Admin/UserDetails/@user.Id" class="btn btn-sm btn-primary">Details</a>
+                        <form asp-action="DeleteUser" method="post" class="d-inline">
+                            <input type="hidden" name="id" value="@user.Id" />
+                            <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this user?')">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <a href="/Admin/UsersList" class="btn btn-link">🔍 Show all users...</a>
+
+    <!-- ✅ Blog Posts Preview -->
+    <h4 class="mt-5 mb-3">📝 Blog Posts Overview</h4>
+    @foreach (var post in Model.Blogs.Take(2))
+    {
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">@post.Title</h5>
+                <p class="card-text text-muted small">
+                    @Html.Raw(post.Content.Length > 200 ? post.Content.Substring(0, 200) + "..." : post.Content)
+                </p>
+                <p class="mb-1"><strong>Author:</strong> @(post.User?.Name ?? "Unknown")</p>
+                <p class="mb-2">
+                    <strong>Status:</strong>
+                    @if (post.IsAdminChoice)
+                    {
+                        <span class="badge bg-warning text-dark">⭐ Admin's Choice</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Regular</span>
+                    }
+                </p>
+                <p class="mb-2"><strong>Posted On:</strong> @post.CreatedAt.ToString("dd MMM yyyy")</p>
+                <div class="d-flex gap-2">
+                    <form method="post" asp-action="DeleteBlog" asp-route-id="@post.Id">
+                        <button class="btn btn-sm btn-danger">🗑️ Delete</button>
+                    </form>
+                    <form method="post" asp-action="ToggleAdminChoice" asp-route-id="@post.Id">
+                        <button class="btn btn-sm @(post.IsAdminChoice ? "btn-outline-warning" : "btn-warning")">
+                            @(post.IsAdminChoice ? "Unmark ⭐" : "Mark as Admin's Choice")
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+    <a href="/Admin/BlogsList" class="btn btn-link">🔍 Show all blogs...</a>
+
+    <!-- 🔙 Back to Home -->
+    <div class="text-center mt-4">
+        <a href="/Feed/Index" class="btn btn-outline-secondary">🏠 Return to Home</a>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .admin-actions {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .badge {
+            font-size: 0.85em;
+            padding: 0.35em 0.65em;
+        }
+
+        .card-body p,
+        .card-body .card-text {
+            font-size: 0.9rem;
+        }
+    </style>
+}

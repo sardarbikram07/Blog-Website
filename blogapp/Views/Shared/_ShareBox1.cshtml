@@ -1,0 +1,233 @@
+﻿@model int
+
+<div class="share-container position-relative">
+    <button class="btn btn-sm btn-outline-secondary share-toggle"
+            data-post-id="@Model"
+            title="Share this post">
+        <i class="fas fa-share-alt"></i>
+    </button>
+
+    <div class="share-popup shadow" id="share-popup-@Model">
+        <div class="share-header d-flex justify-content-between align-items-center p-2 border-bottom">
+            <h6 class="mb-0">Share this post</h6>
+            <button class="btn-close share-close"></button>
+        </div>
+        <div class="share-options p-2">
+            <a href="#" class="share-option facebook" data-platform="facebook">
+                <i class="fab fa-facebook-f me-2"></i> Facebook
+            </a>
+            <a href="#" class="share-option twitter" data-platform="twitter">
+                <i class="fab fa-twitter me-2"></i> Twitter
+            </a>
+            <a href="#" class="share-option linkedin" data-platform="linkedin">
+                <i class="fab fa-linkedin-in me-2"></i> LinkedIn
+            </a>
+            <button class="share-option copy-link" data-post-id="@Model">
+                <i class="fas fa-link me-2"></i> Copy Link
+            </button>
+            
+            <!-- Native Share Button (if Web Share API is available) -->
+            <button class="share-option native-share" data-post-id="@Model" style="display: none;">
+                <i class="fas fa-share-alt me-2"></i> Share
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .share-popup {
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        width: 200px;
+        background: white;
+        border-radius: 8px;
+        z-index: 1000;
+        display: none;
+    }
+
+    .share-option {
+        display: block;
+        padding: 8px;
+        border-radius: 4px;
+        margin: 4px 0;
+        text-decoration: none;
+        color: #333;
+    }
+
+        .share-option:hover {
+            background-color: #f8f9fa;
+        }
+
+    .facebook {
+        color: #1877f2;
+    }
+
+    .twitter {
+        color: #1da1f2;
+    }
+
+    .linkedin {
+        color: #0a66c2;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if Web Share API is available
+        const isWebShareSupported = navigator.share && (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
+        
+        // Show/hide native share button based on support
+        document.querySelectorAll('.native-share').forEach(button => {
+            if (isWebShareSupported) {
+                button.style.display = 'block';
+            }
+        });
+
+        // Toggle share popup
+        document.querySelectorAll('.share-toggle').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const postId = this.getAttribute('data-post-id');
+                const popup = document.getElementById(`share-popup-${postId}`);
+
+                // Close all other popups
+                document.querySelectorAll('.share-popup').forEach(p => {
+                    if (p !== popup) p.style.display = 'none';
+                });
+
+                // Toggle current popup
+                popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+            });
+        });
+
+        // Close button
+        document.querySelectorAll('.share-close').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                this.closest('.share-popup').style.display = 'none';
+            });
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', function() {
+            document.querySelectorAll('.share-popup').forEach(popup => {
+                popup.style.display = 'none';
+            });
+        });
+
+        // Native share functionality
+        document.querySelectorAll('.native-share').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const postId = this.getAttribute('data-post-id');
+                const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+                const title = 'Check out this blog post';
+                const text = `Check out this blog post`;
+                
+                navigator.share({
+                    title: title,
+                    text: text,
+                    url: url
+                }).then(() => {
+                    showShareNotification('Shared successfully!', 'success');
+                }).catch((error) => {
+                    console.log('Share cancelled or failed:', error);
+                    // Fallback to copying if share was cancelled
+                    copyToClipboard(url);
+                });
+            });
+        });
+
+        // Copy link functionality
+        document.querySelectorAll('.copy-link').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const postId = this.getAttribute('data-post-id');
+                const url = `${window.location.origin}/BlogPost/SharedView/${postId}`;
+                copyToClipboard(url);
+            });
+        });
+    });
+
+    // Helper function to copy to clipboard
+    function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                showShareNotification('Link copied to clipboard!', 'success');
+            }).catch(() => {
+                fallbackCopyToClipboard(text);
+            });
+        } else {
+            fallbackCopyToClipboard(text);
+        }
+    }
+
+    // Fallback for older browsers
+    function fallbackCopyToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showShareNotification('Link copied to clipboard!', 'success');
+        } catch (err) {
+            showShareNotification('Failed to copy link. Please copy manually.', 'error');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+
+    // Show notification function
+    function showShareNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        // Add styles
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.color = 'white';
+        notification.style.zIndex = '10000';
+        notification.style.transition = 'all 0.3s ease';
+        notification.style.maxWidth = '300px';
+        notification.style.wordWrap = 'break-word';
+        
+        // Set background color based on type
+        switch(type) {
+            case 'success':
+                notification.style.backgroundColor = '#4caf50';
+                break;
+            case 'error':
+                notification.style.backgroundColor = '#f44336';
+                break;
+            case 'warning':
+                notification.style.backgroundColor = '#ff9800';
+                break;
+            default:
+                notification.style.backgroundColor = '#2196f3';
+        }
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+</script>

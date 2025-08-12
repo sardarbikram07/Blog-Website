@@ -1,0 +1,48 @@
+﻿@model blogapp.Models.User
+@{
+    ViewData["Title"] = "User Details";
+}
+
+<h2>👤 User Profile: @Model.Name</h2>
+<hr />
+<p><strong>Email:</strong> @Model.Email</p>
+<p><strong>Registered on:</strong> @Model.DateTime.ToString("dd MMM yyyy")</p>
+
+<hr />
+<h4>📝 Blogs by @Model.Name</h4>
+@if (Model.BlogPosts?.Count > 0)
+{
+    <ul class="list-group mb-4">
+        @foreach (var post in Model.BlogPosts)
+        {
+            <li class="list-group-item">
+                <strong>@post.Title</strong><br />
+                <span class="text-muted">@post.CreatedAt.ToString("dd MMM yyyy")</span><br />
+                <em>Tags:</em> @post.Tags
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p class="text-muted">No blog posts.</p>
+}
+
+<h4>💬 Comments by @Model.Name</h4>
+@if (Model.BlogPosts.SelectMany(p => p.Comments).Any())
+{
+    <ul class="list-group">
+        @foreach (var comment in Model.BlogPosts.SelectMany(p => p.Comments))
+        {
+            <li class="list-group-item">
+                @comment.Content (on blog ID: @comment.PostId)
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p class="text-muted">No comments available.</p>
+}
+
+<a href="/Admin/Dashboard" class="btn btn-dark mt-3">⬅️ Back to Dashboard</a>
