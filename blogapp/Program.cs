@@ -113,9 +113,9 @@ static async Task SeedAdminAsync(IServiceProvider services)
     var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
-    string adminEmail = "admin@blog.com";
-    string adminUsername = "admin";
-    string adminPassword = "StrongAdmin@123"; // Must match the password policy
+    string adminEmail = "*********";
+    string adminUsername = "****";
+    string adminPassword = "********"; // Must match the password policy
 
     // Create Admin role if it doesn't exist
     if (!await roleManager.RoleExistsAsync("Admin"))
